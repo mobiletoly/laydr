@@ -1,0 +1,4 @@
+interface:
+  display_name: "Laydr App"
+  short_description: "Create and maintain Laydr applications"
+  default_prompt: "Use $laydr-app to create or make a focused change in this Laydr application, including route directories, generated destinations, Compose route definitions, Nav3 KMP route payloads/results, workflows, and validation."
