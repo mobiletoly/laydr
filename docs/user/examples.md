@@ -27,7 +27,7 @@ It demonstrates:
 - screen-owned layout data
 - app-owned path state rendered through `LaydrRouteHost`
 
-Useful checks:
+Validation checks:
 
 ```sh
 ./gradlew :examples:compose-basic:shared:checkLaydrRoutes
@@ -38,8 +38,7 @@ Useful checks:
 ## Nav3 KMP
 
 Use this when you want the recommended KMP Nav3 shape.
-Read [Navigation](navigation/README.md) before using this example as a
-template.
+Read [Nav3 KMP](nav3-kmp.md) before using this example as a template.
 
 It demonstrates:
 
@@ -54,7 +53,7 @@ It demonstrates:
 - structured path and external target helpers
 - app-owned `NavDisplay`
 
-Useful checks:
+Validation checks:
 
 ```sh
 ./gradlew :examples:nav3-kmp:shared:checkLaydrRoutes
@@ -80,19 +79,28 @@ It demonstrates:
 - route-local checkout review workflow
 - local Koin dependency access in route-owned screen files
 - accepted and rejected external targets
+- Android, desktop, iOS, and WasmJS launchers
 
-Useful checks:
+Validation checks:
 
 ```sh
 ./gradlew :examples:nav3-kmp-shopping:shared:checkLaydrRoutes
 ./gradlew :examples:nav3-kmp-shopping:shared:compileKotlinDesktop
+./gradlew :examples:nav3-kmp-shopping:shared:compileKotlinWasmJs
 ./gradlew :examples:nav3-kmp-shopping:desktopApp:run --dry-run
+./gradlew :examples:nav3-kmp-shopping:webApp:wasmJsBrowserDevelopmentWebpack
+```
+
+Manual launch commands:
+
+```sh
+./gradlew :examples:nav3-kmp-shopping:webApp:wasmJsBrowserDevelopmentRun
 ```
 
 ## AndroidX Nav3
 
 Use this when the app is Android-only and should not have a KMP shared module.
-Read [AndroidX Nav3](navigation/androidx.md) before using this example as a
+Read [AndroidX Nav3](nav3-androidx.md) before using this example as a
 template.
 
 It demonstrates:
@@ -104,7 +112,7 @@ It demonstrates:
 - app-owned dependency access from route entrypoints
 - no AndroidX adaptive scene support
 
-Useful checks:
+Validation checks:
 
 ```sh
 ./gradlew :examples:nav3-androidx:checkLaydrRoutes

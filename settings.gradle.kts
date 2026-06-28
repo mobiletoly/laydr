@@ -16,6 +16,32 @@ dependencyResolutionManagement {
     repositories {
         mavenCentral()
         google()
+        ivy {
+            name = "Node.js Distributions"
+            url = uri("https://nodejs.org/dist")
+            patternLayout {
+                artifact("v[revision]/[artifact](-v[revision]-[classifier]).[ext]")
+            }
+            metadataSources {
+                artifact()
+            }
+            content {
+                includeModule("org.nodejs", "node")
+            }
+        }
+        ivy {
+            name = "Yarn Distributions"
+            url = uri("https://github.com/yarnpkg/yarn/releases/download")
+            patternLayout {
+                artifact("v[revision]/[artifact](-v[revision]).[ext]")
+            }
+            metadataSources {
+                artifact()
+            }
+            content {
+                includeModule("com.yarnpkg", "yarn")
+            }
+        }
     }
 }
 
@@ -42,4 +68,5 @@ include(
     ":examples:nav3-kmp-shopping:androidApp",
     ":examples:nav3-kmp-shopping:shared",
     ":examples:nav3-kmp-shopping:desktopApp",
+    ":examples:nav3-kmp-shopping:webApp",
 )

@@ -203,6 +203,14 @@ commonMain.dependencies {
 }
 ```
 
+For Android-only apps:
+
+```kotlin
+dependencies {
+    implementation(libs.laydr.workflow)
+}
+```
+
 For Android-only AndroidX Navigation 3 apps:
 
 ```kotlin
@@ -395,6 +403,14 @@ composable, collect outputs there, and map outputs to app behavior.
 
 ```kotlin
 commonMain.dependencies {
+    implementation(libs.laydr.workflow)
+}
+```
+
+For Android-only apps:
+
+```kotlin
+dependencies {
     implementation(libs.laydr.workflow)
 }
 ```

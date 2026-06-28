@@ -1,34 +1,46 @@
 # Laydr
 
-Laydr is a KMP-first routing layer for Compose Multiplatform apps and
-Android-only Compose apps. It turns a visible `routes/` directory into typed
-Kotlin destinations, route-local Compose entrypoints, generated route maps,
-and validated Nav3 wiring.
+Laydr is file-based, type-safe navigation for Compose Multiplatform and
+Android Compose apps. Model your app as a visible `routes/` directory, and
+Laydr generates the Kotlin destinations, path builders, route maps,
+route-local Compose entrypoints, and Nav3 wiring that usually drifts when
+maintained by hand.
 
-Use Laydr when your app has outgrown hand-written route strings, duplicated
-graph setup, repeated argument extraction, manual layout wrapping, and stale
-navigation glue. Laydr generates the deterministic wiring from your filesystem
-route tree while your app keeps Compose, state, data, dependency access,
-navigation chrome, and platform policy explicit.
+Use Laydr when Kotlin navigation has become a web of copied route strings,
+duplicated graph setup, repeated argument parsing, layout wrappers, tab
+registries, and stale navigation glue. Your routes become inspectable folders;
+Laydr generates the deterministic wiring; your app keeps Compose UI, state,
+data, dependency access, navigation chrome, and platform policy explicit.
 
-## Why Laydr
+## What Laydr Gives You
 
-Navigation structure is product structure. In many Compose apps, that
-structure is split across route constants, graph builders, argument parsers,
-screen registries, layout wrappers, and tab setup. The result is code that is
-easy to drift and hard for a new maintainer to inspect.
+Navigation structure is product structure. Laydr makes that structure visible
+in source instead of scattering it across constants, graph builders, argument
+parsers, screen registries, layout wrappers, and tab setup.
 
-Laydr makes the route tree visible in the project and generates the boring
-Kotlin around it:
-
+- a `routes/` tree that matches the product screens a maintainer needs to find
 - typed destinations instead of raw route strings
 - typed dynamic parameters instead of repeated argument parsing
-- generated route maps and app graphs for adapter validation
-- route-local screen and layout declarations beside the route they render
+- route-local `Route.kt`, `Screen.kt`, and `Layout.kt` files beside the route
+  they define
+- generated route maps and app graphs for plain Compose, Nav3 KMP, and
+  AndroidX Nav3 adapters
 - build-time route checks through the Gradle plugin
-- optional Nav3 KMP section, stack, payload, result, and adaptive-scene helpers
-- optional AndroidX Navigation 3 section, stack, payload, and result helpers
-- optional route-local workflow hosting for private feature flow under a route
+- app-owned Compose UI, state, DI, ViewModels, repositories, chrome, and
+  platform policy
+
+## Before And After Laydr
+
+Before Laydr, one contact detail screen often needs several matching pieces:
+
+- a route string such as `contacts/{id}`
+- a graph entry that must use the same string
+- argument extraction that must agree with the placeholder
+- layout or section wiring that must be kept in sync by hand
+
+With Laydr, the route starts as a directory, a local `Route.kt`, and ordinary
+screen code. The generated API gives app code typed destinations and path
+helpers that match the route tree.
 
 ## The Route Tree Is The Map
 
@@ -78,6 +90,20 @@ LaydrRoutes.Contacts.ById.path(
 )
 ```
 
+## Supported App Shapes
+
+Laydr supports the same route-tree model in three common Compose app shapes:
+
+- Compose Multiplatform apps that own a current path and render content through
+  `LaydrRouteHost`.
+- Compose Multiplatform apps that use Nav3 for back stacks, tabs, app Back,
+  payloads, route results, or adaptive scenes.
+- Android-only Compose apps that use Google AndroidX Navigation 3 without a KMP
+  shared module.
+
+Start with the shape that matches your app's navigation owner. The Gradle docs
+show the exact setup when you are ready to wire it in.
+
 ## What Laydr Generates
 
 Laydr generated source is readable Kotlin under
@@ -98,7 +124,7 @@ The generated API includes:
 The Gradle plugin wires generated source into KMP `commonMain` or Android-only
 `main`, generates routes, and validates the route tree during `check`.
 
-## Compose And Nav3
+## Compose And Navigation
 
 Use `LaydrRouteHost` when your app wants the smallest path-in/content-out
 Compose host and owns path state directly.
@@ -113,30 +139,7 @@ Use `laydr-nav3-androidx` when an Android-only Compose app should use Google
 AndroidX Navigation 3 without a KMP shared module. AndroidX adaptive scene
 support is not part of the current AndroidX adapter.
 
-All paths use the same route-local `Route.kt` declarations.
-
-## Optional Route-Local Workflows
-
-`laydr-workflow` is for routes that need private, testable, multi-step feature
-state after the app has already matched a Laydr route. It is optional because
-many screens only need generated destinations plus ordinary Compose state.
-
-Use a route when the user can navigate to or share a screen. Use
-`remember`, `rememberSaveable`, a ViewModel, or another app-owned state holder
-for ordinary screen state. Use `laydr-workflow` when the matched route owns a
-private flow such as a review/confirm step that should stay inside that route
-instead of becoming separate app-addressable destinations.
-
-A workflow owns headless nodes, node state, typed events, outputs, and a
-private node stack. The route entry composable creates the workflow with
-`rememberLaydrWorkflow`, collects outputs with
-`CollectLaydrWorkflowOutputs`, maps those outputs back to app behavior, and
-renders the current node with `LaydrWorkflowHost`.
-
-Workflow is not navigation. It does not replace generated destinations, Nav3
-stacks, tabs, deep links, platform Back, ViewModels, DI, repositories, or
-app-shell policy. Workflow files are ordinary app-owned Kotlin files and do
-not change generated route output.
+All runtime paths use the same route-local `Route.kt` declarations.
 
 ## What Your App Still Owns
 
@@ -165,9 +168,6 @@ laydr = { id = "dev.goquick.laydr", version.ref = "laydr" }
 
 [libraries]
 laydr-compose = { module = "dev.goquick.laydr:laydr-compose", version.ref = "laydr" }
-laydr-nav3-kmp = { module = "dev.goquick.laydr:laydr-nav3-kmp", version.ref = "laydr" }
-laydr-nav3-androidx = { module = "dev.goquick.laydr:laydr-nav3-androidx", version.ref = "laydr" }
-laydr-workflow = { module = "dev.goquick.laydr:laydr-workflow", version.ref = "laydr" }
 ```
 
 Apply the plugin in the KMP module that owns `src/commonMain/kotlin/routes`:
@@ -182,7 +182,6 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(libs.laydr.compose)
-            implementation(libs.laydr.nav3.kmp)
         }
     }
 }
@@ -203,6 +202,10 @@ Read [Getting Started](docs/user/getting-started.md) for a complete first app,
 and [Gradle](docs/user/gradle.md) for artifact coordinates, composite-build
 setup, task details, and generated-source locations.
 
+The snippets use `LAYDR_VERSION` as the artifact version placeholder. For this
+checkout, the examples are the most reliable way to inspect current behavior
+before choosing a published or locally published artifact.
+
 ## Examples
 
 - [examples/compose-basic](examples/compose-basic/): app-owned path state
@@ -212,9 +215,24 @@ setup, task details, and generated-source locations.
   `NavDisplay`.
 - [examples/nav3-kmp-shopping](examples/nav3-kmp-shopping/): a larger app with
   section stacks, checkout layout, route results, transient payloads, adaptive
-  list/detail scenes, Koin as app infrastructure, and a route-local workflow.
+  list/detail scenes, Koin as app infrastructure, a route-local workflow, and
+  Android, desktop, iOS, and WasmJS launchers.
 - [examples/nav3-androidx](examples/nav3-androidx/): an Android-only app using
   AndroidX Navigation 3, generated sections, and `src/main/kotlin/routes`.
+
+## Optional Route-Local Workflows
+
+Some routes need private, testable, multi-step feature state after the app has
+already matched a Laydr route. `laydr-workflow` handles that case without
+turning the private flow into separate app-addressable destinations.
+
+Workflow is optional and route-local. It does not replace generated
+destinations, Nav3 stacks, tabs, deep links, platform Back, ViewModels, DI,
+repositories, or app-shell policy. Many screens only need generated
+destinations plus ordinary Compose state.
+
+Read [Route-Local Workflow](docs/user/workflow.md) when a matched route owns a
+private review, confirm, or wizard-style flow.
 
 ## Learn More
 

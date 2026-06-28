@@ -1,3 +1,8 @@
+import org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsEnvSpec
+import org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsRootPlugin
+import org.jetbrains.kotlin.gradle.targets.wasm.yarn.WasmYarnPlugin
+import org.jetbrains.kotlin.gradle.targets.wasm.yarn.WasmYarnRootEnvSpec
+
 plugins {
     alias(libs.plugins.kotlin.multiplatform) apply false
     alias(libs.plugins.kotlin.jvm) apply false
@@ -11,6 +16,18 @@ plugins {
 
 val laydrGroup = providers.gradleProperty("laydr.group").get()
 val laydrVersion = providers.gradleProperty("laydr.version").get()
+
+plugins.withType<WasmNodeJsRootPlugin>().configureEach {
+    extensions.configure<WasmNodeJsEnvSpec>(WasmNodeJsEnvSpec.EXTENSION_NAME) {
+        downloadBaseUrl.unset()
+    }
+}
+
+plugins.withType<WasmYarnPlugin>().configureEach {
+    extensions.configure<WasmYarnRootEnvSpec>(WasmYarnRootEnvSpec.YARN) {
+        downloadBaseUrl.unset()
+    }
+}
 
 subprojects {
     group = laydrGroup

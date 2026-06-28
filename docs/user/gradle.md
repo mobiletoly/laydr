@@ -9,7 +9,9 @@ The snippets assume your app already has Kotlin, Compose, Android, or KMP
 plugins configured. Laydr adds route scanning, generated source wiring, and
 runtime artifacts. It does not configure Compose or Android for the app.
 
-Replace `LAYDR_VERSION` with the Laydr version your app should consume.
+Replace `LAYDR_VERSION` with the Laydr version your app should consume. For a
+published release, use that release number. For local checkout dogfooding, use
+the locally published version from [Local Checkout](#local-checkout).
 
 ## Version Catalog
 
@@ -51,6 +53,42 @@ dependencyResolutionManagement {
     }
 }
 ```
+
+## Local Checkout
+
+When testing an unpublished Laydr checkout from another app, publish Laydr to
+Maven local from this repository:
+
+```sh
+./gradlew publishToMavenLocal
+```
+
+Then add `mavenLocal()` to both plugin and dependency repositories in the
+consumer app:
+
+```kotlin
+pluginManagement {
+    repositories {
+        mavenLocal()
+        gradlePluginPortal()
+        mavenCentral()
+        google()
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        mavenLocal()
+        mavenCentral()
+        google()
+    }
+}
+```
+
+Use `0.1.0-SNAPSHOT` as `LAYDR_VERSION` for the default local publish. If the
+checkout was published with `-Playdr.version=...`, use that exact version
+instead.
 
 ## KMP Module Template
 
@@ -182,6 +220,26 @@ adaptive `compileSdk 37` requirement.
 Most apps do not declare `laydr-core` directly. The Compose, Nav3, and
 workflow artifacts bring in the lower-level runtime they need.
 
+For KMP route-local workflow:
+
+```kotlin
+kotlin {
+    sourceSets {
+        commonMain.dependencies {
+            implementation(libs.laydr.workflow)
+        }
+    }
+}
+```
+
+For Android-only route-local workflow:
+
+```kotlin
+dependencies {
+    implementation(libs.laydr.workflow)
+}
+```
+
 ## Extension Options
 
 ```kotlin
@@ -238,8 +296,10 @@ Runtime artifacts:
 - `dev.goquick.laydr:laydr-nav3-kmp-adaptive:LAYDR_VERSION`
 - `dev.goquick.laydr:laydr-nav3-androidx:LAYDR_VERSION`
 
-Laydr JVM artifacts target JVM 17 bytecode. JVM and desktop KMP consumers may
-compile with `jvmTarget = JVM_17` when using Laydr runtime artifacts.
+Laydr KMP runtime artifacts publish JVM, iOS, and WasmJS variants. The
+AndroidX Nav3 artifact is Android-only. Laydr JVM artifacts target JVM 17
+bytecode, so JVM and desktop KMP consumers may compile with
+`jvmTarget = JVM_17` when using Laydr runtime artifacts.
 
 ## When Generated APIs Are Missing
 

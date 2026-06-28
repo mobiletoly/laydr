@@ -99,6 +99,10 @@ Xcode and run the `Nav3KmpShoppingIosApp` scheme on an iOS simulator. The
 Xcode target calls Gradle's `embedAndSignAppleFrameworkForXcode` task to build
 and embed the shared KMP framework before compiling Swift.
 
+The web launcher lives in `webApp/`. It is a thin Compose Multiplatform
+WasmJS browser executable that renders the same shared `Nav3KmpShoppingApp()`.
+It does not add browser history, URL routing, or deployment configuration.
+
 Useful checks:
 
 ```sh
@@ -106,8 +110,11 @@ Useful checks:
 ./gradlew :examples:nav3-kmp-shopping:shared:compileKotlinDesktop
 ./gradlew :examples:nav3-kmp-shopping:shared:compileAndroidMain
 ./gradlew :examples:nav3-kmp-shopping:shared:compileKotlinIosSimulatorArm64
+./gradlew :examples:nav3-kmp-shopping:shared:compileKotlinWasmJs
 ./gradlew :examples:nav3-kmp-shopping:desktopApp:compileKotlin
 ./gradlew :examples:nav3-kmp-shopping:desktopApp:run --dry-run
 ./gradlew :examples:nav3-kmp-shopping:androidApp:compileDebugKotlin
+./gradlew :examples:nav3-kmp-shopping:webApp:wasmJsBrowserDevelopmentWebpack
+./gradlew :examples:nav3-kmp-shopping:webApp:wasmJsBrowserDevelopmentRun
 xcodebuild -project examples/nav3-kmp-shopping/iosApp/iosApp.xcodeproj -scheme Nav3KmpShoppingIosApp -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' build
 ```

@@ -5,7 +5,7 @@ with `LaydrRouteHost`.
 
 Start here for Compose Multiplatform apps, even if the app will later use
 Nav3 KMP. Android-only apps should start with
-[AndroidX Nav3](navigation/androidx.md); the route concepts are the same, but
+[AndroidX Nav3](nav3-androidx.md); the route concepts are the same, but
 the source set is different.
 
 You will:
@@ -17,7 +17,9 @@ You will:
 5. run Laydr validation
 
 The snippets use `LAYDR_VERSION` for the Laydr artifact version. Replace it
-with the version your app should consume.
+with the version your app should consume. If you are using a local Laydr
+checkout before a published release, read [Gradle](gradle.md#local-checkout)
+for `publishToMavenLocal` setup.
 
 ## What You Are Building
 
@@ -48,7 +50,7 @@ shared/build/generated/laydr/commonMain/kotlin/
 ```
 
 Android-only apps use a different route root. Read
-[AndroidX Nav3](navigation/androidx.md) for the Android-only shape.
+[AndroidX Nav3](nav3-androidx.md) for the Android-only shape.
 
 ## 2. Add Laydr To The Build
 
@@ -119,6 +121,7 @@ Create this source tree in the shared module:
 src/commonMain/kotlin/
   example/contacts/
     ContactsApp.kt
+    ContactsDependencies.kt
     ContactsRepository.kt
     ContactsUi.kt
   routes/
@@ -264,10 +267,12 @@ internal fun ContactsApp(repository: ContactsRepository) {
 `CompositionLocal` provider, a DI boundary, or explicit parameters passed into
 your route entry composables. Laydr does not require one dependency style.
 
-For the smallest possible app, use a `CompositionLocal` provider around the
-host:
+For the smallest possible app, create `ContactsDependencies.kt` with a narrow
+`CompositionLocal` provider:
 
 ```kotlin
+package example.contacts
+
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -304,13 +309,76 @@ internal fun ProvideContactsRouteDependencies(
 Read [Route Dependencies](route-dependencies.md) before turning this small
 teaching provider into a broad root app context.
 
-## 7. Run The Feedback Loop
+## 7. Add Minimal App-Owned Code
+
+The route files above call normal app-owned code. For a tiny compiling sample,
+add these files under `example/contacts/`.
+
+Create `ContactsRepository.kt`:
+
+```kotlin
+package example.contacts
+
+internal data class Contact(
+    val id: String,
+    val name: String,
+)
+
+internal class ContactsRepository {
+    private val contacts = listOf(
+        Contact(id = "ada", name = "Ada Lovelace"),
+        Contact(id = "grace", name = "Grace Hopper"),
+    )
+
+    fun listContacts(): List<Contact> = contacts
+
+    fun requireContact(id: String): Contact =
+        contacts.first { it.id == id }
+}
+```
+
+Create `ContactsUi.kt`:
+
+```kotlin
+package example.contacts
+
+import androidx.compose.runtime.Composable
+
+@Composable
+internal fun ContactsScreen(
+    contacts: List<Contact>,
+    selectedPath: String,
+    onContactClick: (id: String) -> Unit,
+) {
+    // Replace this with your app's contact list UI.
+}
+
+@Composable
+internal fun ContactDetailScreen(
+    contact: Contact,
+    onBack: () -> Unit,
+) {
+    // Replace this with your app's detail UI.
+}
+
+@Composable
+internal fun NotFound(path: String) {
+    // Replace this with your app's not-found UI.
+}
+```
+
+These stubs are intentionally plain. Laydr does not generate repositories, UI
+components, theme, navigation chrome, or dependency containers.
+
+## 8. Run The Feedback Loop
 
 After adding or renaming route files, run:
 
 ```sh
 ./gradlew :shared:checkLaydrRoutes
 ```
+
+Replace `:shared` with the path of the module that owns `routes/`.
 
 Generate source when you need generated APIs for compilation or IDE indexing:
 
@@ -323,18 +391,18 @@ If your IDE still cannot resolve `LaydrRouteDef`, `LaydrRoutes`, or
 
 The normal Gradle `check` task depends on `checkLaydrRoutes`.
 
-## 8. Choose The Next Runtime
+## 9. Choose The Next Runtime
 
 Stay with `LaydrRouteHost` when the app only needs path-in/content-out
 rendering and owns path state directly.
 
-Use [Navigation](navigation/README.md) when the app needs Nav3 KMP stacks,
+Use [Nav3 KMP](nav3-kmp.md) when the app needs Nav3 KMP stacks,
 sections, Back behavior, payloads, results, adaptive scenes, or `NavDisplay`.
 
-Use [AndroidX Nav3](navigation/androidx.md) when the app is Android-only and
+Use [AndroidX Nav3](nav3-androidx.md) when the app is Android-only and
 uses Google AndroidX Navigation 3 instead of a shared KMP route module.
 
-## 9. Next Pages
+## 10. Next Pages
 
 Read these next:
 

@@ -43,7 +43,19 @@ state, auth policy, or as a ViewModel replacement.
 Add workflow only to modules that host route-local workflow state:
 
 ```kotlin
-commonMain.dependencies {
+// KMP shared route module
+kotlin {
+    sourceSets {
+        commonMain.dependencies {
+            implementation(libs.laydr.workflow)
+        }
+    }
+}
+```
+
+```kotlin
+// Android-only route module
+dependencies {
     implementation(libs.laydr.workflow)
 }
 ```
