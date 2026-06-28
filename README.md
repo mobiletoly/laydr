@@ -115,6 +115,29 @@ support is not part of the current AndroidX adapter.
 
 All paths use the same route-local `Route.kt` declarations.
 
+## Optional Route-Local Workflows
+
+`laydr-workflow` is for routes that need private, testable, multi-step feature
+state after the app has already matched a Laydr route. It is optional because
+many screens only need generated destinations plus ordinary Compose state.
+
+Use a route when the user can navigate to or share a screen. Use
+`remember`, `rememberSaveable`, a ViewModel, or another app-owned state holder
+for ordinary screen state. Use `laydr-workflow` when the matched route owns a
+private flow such as a review/confirm step that should stay inside that route
+instead of becoming separate app-addressable destinations.
+
+A workflow owns headless nodes, node state, typed events, outputs, and a
+private node stack. The route entry composable creates the workflow with
+`rememberLaydrWorkflow`, collects outputs with
+`CollectLaydrWorkflowOutputs`, maps those outputs back to app behavior, and
+renders the current node with `LaydrWorkflowHost`.
+
+Workflow is not navigation. It does not replace generated destinations, Nav3
+stacks, tabs, deep links, platform Back, ViewModels, DI, repositories, or
+app-shell policy. Workflow files are ordinary app-owned Kotlin files and do
+not change generated route output.
+
 ## What Your App Still Owns
 
 Laydr is routing infrastructure, not a client architecture framework. Your app

@@ -18,5 +18,5 @@ generated/
 src/**/generated/
 
 /AGENTS.md
-#/docs/spec/*.md
-#!/docs/spec/README.md
+/docs/spec/*.md
+!/docs/spec/README.md

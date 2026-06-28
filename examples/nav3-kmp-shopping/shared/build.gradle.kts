@@ -14,8 +14,16 @@ kotlin {
     }
 
     jvm("desktop")
-    iosArm64()
-    iosSimulatorArm64()
+    listOf(
+        iosArm64(),
+        iosSimulatorArm64(),
+    ).forEach { iosTarget ->
+        iosTarget.binaries.framework {
+            baseName = "Nav3KmpShoppingShared"
+            binaryOption("bundleId", "dev.goquick.laydr.examples.nav3kmpshopping.shared")
+            isStatic = true
+        }
+    }
 
     sourceSets {
         commonMain.dependencies {
@@ -25,6 +33,7 @@ kotlin {
             implementation(libs.compose.foundation)
             implementation(libs.compose.material3)
             implementation(libs.compose.runtime)
+            implementation(libs.compose.ui)
             implementation(libs.koin.compose)
             implementation(libs.koin.core)
         }

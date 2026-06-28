@@ -6,6 +6,8 @@ dependencies {
     implementation(libs.android.gradle.plugin)
     implementation(libs.kotlin.gradle.plugin)
     implementation(libs.vanniktech.maven.publish.plugin)
+    testImplementation(gradleTestKit())
+    testImplementation(kotlin("test"))
 }
 
 java {

@@ -94,6 +94,11 @@ The fake shopping state is local to the example. It has product catalog data,
 cart lines, checkout flow state, orders, addresses, and payment methods. It
 does not add persistence, networking, ViewModels, or framework APIs.
 
+The iOS launcher lives in `iosApp/iosApp.xcodeproj`. Open that project in
+Xcode and run the `Nav3KmpShoppingIosApp` scheme on an iOS simulator. The
+Xcode target calls Gradle's `embedAndSignAppleFrameworkForXcode` task to build
+and embed the shared KMP framework before compiling Swift.
+
 Useful checks:
 
 ```sh
@@ -104,4 +109,5 @@ Useful checks:
 ./gradlew :examples:nav3-kmp-shopping:desktopApp:compileKotlin
 ./gradlew :examples:nav3-kmp-shopping:desktopApp:run --dry-run
 ./gradlew :examples:nav3-kmp-shopping:androidApp:compileDebugKotlin
+xcodebuild -project examples/nav3-kmp-shopping/iosApp/iosApp.xcodeproj -scheme Nav3KmpShoppingIosApp -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' build
 ```

@@ -3,6 +3,7 @@
 
 import com.vanniktech.maven.publish.MavenPublishBaseExtension
 import java.util.Properties
+import org.gradle.api.GradleException
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.kotlin.dsl.configure
@@ -53,17 +54,30 @@ class LaydrPublishingPlugin : Plugin<Project> {
 
     private fun Project.ensureLaydrCoordinates() {
         if (group.toString().isBlank() || group.toString() == "unspecified") {
-            group = laydrProperty("laydr.group", "dev.goquick.laydr")
+            group = laydrProperty("laydr.group", DEFAULT_LAYDR_GROUP)
         }
         if (version.toString().isBlank() || version.toString() == "unspecified") {
-            version = laydrProperty("laydr.version", "0.1.0-SNAPSHOT")
+            version = laydrVersion()
         }
     }
 
     private fun Project.laydrProperty(name: String, fallback: String): String =
-        providers.gradleProperty(name)
-            .orElse(providers.provider { parentGradleProperties().getProperty(name, fallback) })
-            .get()
+        explicitLaydrProperty(name) ?: fallback
+
+    private fun Project.laydrVersion(): String =
+        explicitLaydrProperty("laydr.version")
+            ?: if (isRemotePublishingRequested()) {
+                throw GradleException(
+                    "laydr.version is required for remote publishing. " +
+                        "Set laydr.version in gradle.properties or pass -Playdr.version=...",
+                )
+            } else {
+                LOCAL_DEVELOPMENT_VERSION
+            }
+
+    private fun Project.explicitLaydrProperty(name: String): String? =
+        providers.gradleProperty(name).orNull?.trim()?.takeIf(String::isNotEmpty)
+            ?: parentGradleProperties().getProperty(name)?.trim()?.takeIf(String::isNotEmpty)
 
     private fun Project.parentGradleProperties(): Properties {
         val properties = Properties()
@@ -76,8 +90,17 @@ class LaydrPublishingPlugin : Plugin<Project> {
 
     private fun Project.isPublishingToMavenLocal(): Boolean =
         gradle.startParameter.taskNames.any { taskName ->
-            taskName.contains("publishToMavenLocal", ignoreCase = true)
+            taskName.isPublishToMavenLocalTask()
         }
+
+    private fun Project.isRemotePublishingRequested(): Boolean =
+        gradle.startParameter.taskNames.any { taskName ->
+            taskName.contains("publish", ignoreCase = true) &&
+                !taskName.isPublishToMavenLocalTask()
+        }
+
+    private fun String.isPublishToMavenLocalTask(): Boolean =
+        contains("publishToMavenLocal", ignoreCase = true)
 
     private fun Project.hasSigningCredentials(): Boolean =
         providers.environmentVariable("SIGNING_KEY").isPresent ||
@@ -96,6 +119,9 @@ class LaydrPublishingPlugin : Plugin<Project> {
     )
 
     private companion object {
+        const val DEFAULT_LAYDR_GROUP = "dev.goquick.laydr"
+        const val LOCAL_DEVELOPMENT_VERSION = "0.1.0-SNAPSHOT"
+
         val moduleMetadata = mapOf(
             "laydr-core" to ModuleMetadata(
                 artifactId = "laydr-core",
