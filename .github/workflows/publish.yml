@@ -1,0 +1,111 @@
+name: Publish Maven/KMP
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: 'Release version to validate, without the leading v'
+        required: true
+        type: string
+      dry_run:
+        description: 'Run validation without publishing'
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Release Maven/KMP artifacts
+    runs-on: macos-latest
+    env:
+      LAYDR_RELEASE_DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run == true }}
+      LAYDR_RELEASE_VERSION_INPUT: ${{ inputs.release_version || '' }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: 17
+
+      - name: Validate release version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            if [[ "${LAYDR_RELEASE_DRY_RUN}" != "true" ]]; then
+              echo "Manual release workflow runs are dry-run only; publish by pushing a version tag."
+              exit 1
+            fi
+            release_version="${LAYDR_RELEASE_VERSION_INPUT}"
+            release_ref_name="v${release_version}"
+          else
+            release_version="${GITHUB_REF_NAME#v}"
+            release_ref_name="${GITHUB_REF_NAME}"
+          fi
+
+          if [[ "${release_version}" == *SNAPSHOT* || "${release_version}" == *snapshot* ]]; then
+            echo "Refusing to publish snapshot version from ${release_ref_name}."
+            exit 1
+          fi
+
+          gradle_version="$(grep '^laydr.version=' gradle.properties | cut -d= -f2)"
+
+          echo "Release tag version: ${release_version}"
+          echo "Gradle/KMP version: ${gradle_version}"
+
+          if [[ "${gradle_version}" != "${release_version}" ]]; then
+            echo "gradle.properties laydr.version must match ${release_ref_name}."
+            exit 1
+          fi
+
+      - name: Validate release build
+        run: |
+          ./gradlew \
+            :conventions:test \
+            :laydr-codegen:test \
+            :laydr-gradle-plugin:check \
+            :laydr-core:jvmTest \
+            :laydr-core:iosSimulatorArm64Test \
+            :laydr-compose:jvmTest \
+            :laydr-compose:iosSimulatorArm64Test \
+            :laydr-nav-runtime:jvmTest \
+            :laydr-nav-runtime:iosSimulatorArm64Test \
+            :laydr-nav3-kmp:jvmTest \
+            :laydr-nav3-kmp:iosSimulatorArm64Test \
+            :laydr-nav3-kmp-adaptive:jvmTest \
+            :laydr-nav3-kmp-adaptive:iosSimulatorArm64Test \
+            :laydr-nav3-androidx:testDebugUnitTest \
+            :laydr-workflow:jvmTest \
+            :laydr-workflow:iosSimulatorArm64Test \
+            :examples:compose-basic:desktopApp:compileKotlin \
+            :examples:nav3-kmp:desktopApp:compileKotlin \
+            :examples:nav3-androidx:assembleDebug \
+            publishToMavenLocal \
+            --no-daemon \
+            --no-configuration-cache \
+            -Dorg.gradle.vfs.watch=false
+
+      - name: Publish Laydr artifacts to Maven Central
+        if: env.LAYDR_RELEASE_DRY_RUN != 'true'
+        run: ./gradlew publishToMavenCentral --no-daemon --no-configuration-cache -Dorg.gradle.vfs.watch=false
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.SIGNING_KEY_ID }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.GPG_KEY_CONTENTS }}
+
+      - name: Confirm release dry run
+        if: env.LAYDR_RELEASE_DRY_RUN == 'true'
+        run: echo "Laydr Maven/KMP release dry run completed; remote publish was skipped."

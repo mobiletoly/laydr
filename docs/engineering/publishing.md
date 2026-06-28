@@ -54,7 +54,10 @@ Local publishing must not require signing credentials.
 - `dev.goquick.laydr:laydr-core`
 - `dev.goquick.laydr:laydr-compose`
 - `dev.goquick.laydr:laydr-workflow`
+- `dev.goquick.laydr:laydr-nav-runtime`
 - `dev.goquick.laydr:laydr-nav3-kmp`
+- `dev.goquick.laydr:laydr-nav3-androidx`
+- `dev.goquick.laydr:laydr-nav3-kmp-adaptive`
 - `dev.goquick.laydr:laydr-codegen`
 - `dev.goquick.laydr:laydr-gradle-plugin`
 - plugin marker `dev.goquick.laydr:dev.goquick.laydr.gradle.plugin`
@@ -72,3 +75,36 @@ The build exposes Maven Central publish tasks through Vanniktech Maven Publish:
 Remote publishing requires external Maven Central and signing credentials.
 Signing is enabled only when credentials are present and the task is not
 `publishToMavenLocal`.
+
+## GitHub Actions Release Workflow
+
+`.github/workflows/publish.yml` publishes Maven/KMP artifacts from version
+tags that match `vX.Y.Z` or `vX.Y.Z-*`.
+
+Before publishing, the workflow verifies that:
+
+- the release version is not a snapshot
+- `gradle.properties` contains `laydr.version=<tag version without v>`
+- the focused release validation build tests every published module with a
+  configured JVM or iOS simulator test suite
+- `publishToMavenLocal` can assemble every configured publication
+
+Manual `workflow_dispatch` runs are validation-only and must keep
+`dry_run=true`. This keeps Maven Central credentials out of dry runs because
+Vanniktech resolves remote credentials during Gradle configuration for
+`publishToMavenCentral`.
+
+The tag publish step expects these GitHub secrets:
+
+- `MAVEN_CENTRAL_USERNAME`
+- `MAVEN_CENTRAL_PASSWORD`
+- `SIGNING_KEY_ID`
+- `SIGNING_PASSWORD`
+- `GPG_KEY_CONTENTS`
+
+The workflow uploads and validates with Maven Central through Vanniktech. Final
+Central Portal release remains a maintainer action.
+
+Android library artifacts publish an empty javadoc jar. This avoids running
+AGP javadoc generation during release while still satisfying Maven Central's
+javadoc artifact requirement.

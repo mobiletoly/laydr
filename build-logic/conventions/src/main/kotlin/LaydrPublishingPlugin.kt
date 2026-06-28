@@ -1,6 +1,8 @@
 // Copyright 2026 Toly Pochkin
 // SPDX-License-Identifier: Apache-2.0
 
+import com.vanniktech.maven.publish.AndroidSingleVariantLibrary
+import com.vanniktech.maven.publish.JavadocJar
 import com.vanniktech.maven.publish.MavenPublishBaseExtension
 import java.util.Properties
 import org.gradle.api.GradleException
@@ -16,6 +18,9 @@ class LaydrPublishingPlugin : Plugin<Project> {
         val metadata = moduleMetadata.getValue(project.name)
         project.extensions.configure<MavenPublishBaseExtension>("mavenPublishing") {
             publishToMavenCentral()
+            if (project.plugins.hasPlugin("com.android.library")) {
+                configure(AndroidSingleVariantLibrary(javadocJar = JavadocJar.Empty()))
+            }
             if (!project.isPublishingToMavenLocal() && project.hasSigningCredentials()) {
                 signAllPublications()
             }
