@@ -81,6 +81,9 @@ Signing is enabled only when credentials are present and the task is not
 `.github/workflows/publish.yml` publishes Maven/KMP artifacts from version
 tags that match `vX.Y.Z` or `vX.Y.Z-*`.
 
+The workflow pins `macos-26` rather than `macos-latest` so release validation
+uses the current iOS simulator SDK needed by Compose UIKit dependencies.
+
 Before publishing, the workflow verifies that:
 
 - the release version is not a snapshot
@@ -98,9 +101,14 @@ The tag publish step expects these GitHub secrets:
 
 - `MAVEN_CENTRAL_USERNAME`
 - `MAVEN_CENTRAL_PASSWORD`
-- `SIGNING_KEY_ID`
+- `SIGNING_KEY_ID`, the last 8 hexadecimal characters of the GPG signing key
+  id, optionally prefixed with `0x`
 - `SIGNING_PASSWORD`
 - `GPG_KEY_CONTENTS`
+
+Tag publishes validate that all five secrets are present and that
+`SIGNING_KEY_ID` matches Gradle signing's expected key-id shape before running
+the release build.
 
 The workflow uploads and validates with Maven Central through Vanniktech. Final
 Central Portal release remains a maintainer action.
