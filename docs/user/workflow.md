@@ -308,7 +308,10 @@ internal fun Screen(
         )
     }
 
-    CollectLaydrWorkflowOutputs(workflow = workflow) { output ->
+    LaydrWorkflowHost(
+        workflow = workflow,
+        renderer = CheckoutReviewRenderer,
+    ) { output ->
         when (output) {
             CheckoutReviewOutput.ReturnToCart ->
                 navigation.replace(LaydrRoutes.Cart.destination())
@@ -320,11 +323,6 @@ internal fun Screen(
             CheckoutReviewOutput.CancelSubmit -> Unit
         }
     }
-
-    LaydrWorkflowHost(
-        workflow = workflow,
-        renderer = CheckoutReviewRenderer,
-    )
 }
 ```
 
@@ -381,7 +379,8 @@ the route screen may ignore.
 - Resolve route dependencies before creating the workflow.
 - Use `rememberLaydrWorkflow(key = route)` so a route change creates a new
   workflow instance.
-- Collect outputs in the route entry and map them to app behavior.
+- Host the workflow with `LaydrWorkflowHost(..., onOutput = ...)` when outputs
+  must reach app behavior.
 - Use generated destinations for app navigation triggered by workflow outputs.
 - Test node transitions and outputs with `LaydrWorkflowScenario`.
 - Run `checkLaydrRoutes` and the relevant KMP compile task.

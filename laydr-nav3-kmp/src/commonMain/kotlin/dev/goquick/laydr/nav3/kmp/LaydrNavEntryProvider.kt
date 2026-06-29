@@ -15,20 +15,31 @@ import dev.goquick.laydr.core.LaydrRouteMap
 import dev.goquick.laydr.core.LaydrRouteMatch
 import dev.goquick.laydr.nav.runtime.LaydrNavResolvedEntry
 import kotlinx.serialization.modules.SerializersModule
+import kotlinx.serialization.modules.overwriteWith
 import kotlinx.serialization.modules.polymorphic
+import kotlinx.serialization.modules.plus
 
 /**
  * Creates the saved-state configuration required by Nav3 for Laydr keys.
  *
- * Use this with `rememberNavBackStack(configuration, initialKey)` on KMP
- * targets that require explicit polymorphic `NavKey` serializer registration.
+ * Use this with `rememberNavBackStack(configuration, initialKey)` on KMP. When
+ * a mixed parent stack contains app-owned foreign keys, pass their serializers
+ * in [serializersModule] or start from an app [from] configuration so Nav3 can
+ * restore the entire stack.
  */
-public fun laydrNavSavedStateConfiguration(): SavedStateConfiguration =
-    SavedStateConfiguration {
-        serializersModule = SerializersModule {
-            polymorphic(NavKey::class) {
-                subclass(LaydrNavKey::class, LaydrNavKey.serializer())
-            }
+public fun laydrNavSavedStateConfiguration(
+    from: SavedStateConfiguration = SavedStateConfiguration.DEFAULT,
+    serializersModule: SerializersModule = SerializersModule {},
+): SavedStateConfiguration =
+    SavedStateConfiguration(from) {
+        this.serializersModule = (this.serializersModule + serializersModule)
+            .overwriteWith(laydrNavSerializersModule())
+    }
+
+private fun laydrNavSerializersModule(): SerializersModule =
+    SerializersModule {
+        polymorphic(NavKey::class) {
+            subclass(LaydrNavKey::class, LaydrNavKey.serializer())
         }
     }
 

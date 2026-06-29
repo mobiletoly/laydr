@@ -200,6 +200,6 @@ separately when the route should close.
 ## Workflow Failures
 
 Workflow hosting is route-owned screen code. Add `laydr-workflow`, create the
-workflow with `rememberLaydrWorkflow`, collect outputs with
-`CollectLaydrWorkflowOutputs`, render with `LaydrWorkflowHost`, and map final
-outputs to app behavior. Workflow files do not affect generated route output.
+workflow with `rememberLaydrWorkflow`, render and collect outputs with
+`LaydrWorkflowHost(..., onOutput = ...)`, and map final outputs to app
+behavior. Workflow files do not affect generated route output.

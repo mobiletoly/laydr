@@ -32,8 +32,9 @@ placement.
 
 Default AndroidX section and stack helpers create `NavBackStack` state with
 AndroidX saved-stack behavior. That restores Laydr destination identity across
-configuration changes and Android process death. Payloads, result callbacks,
-entry tokens, and entry metadata remain transient.
+configuration changes and Android process death. Restored Laydr entries contain
+route id and generated route parameters only; payloads, result callbacks, entry
+tokens, and entry metadata remain transient.
 
 The AndroidX adapter must not depend on JetBrains Navigation3 KMP. The KMP
 adapter must not depend on AndroidX Navigation 3.

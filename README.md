@@ -22,7 +22,7 @@ data, dependency access, navigation chrome, and platform policy explicit.
 
 ## Supported Platforms
 
-Laydr `0.1.0` supports these app targets:
+Laydr supports these app targets:
 
 | App target                           | Notes                                                                                            |
 |--------------------------------------|--------------------------------------------------------------------------------------------------|

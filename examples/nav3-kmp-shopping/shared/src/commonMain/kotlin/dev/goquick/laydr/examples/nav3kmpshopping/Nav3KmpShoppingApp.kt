@@ -39,9 +39,9 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.NavKey
+import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import dev.goquick.laydr.examples.nav3kmpshopping.generated.LaydrNavRoutes
 import dev.goquick.laydr.examples.nav3kmpshopping.generated.LaydrRoutes
@@ -52,8 +52,13 @@ import dev.goquick.laydr.nav3.kmp.LaydrNavSection
 import dev.goquick.laydr.nav3.kmp.LaydrNavSections
 import dev.goquick.laydr.nav3.kmp.ProvideLaydrNavStackNavigator
 import dev.goquick.laydr.nav3.kmp.get
+import dev.goquick.laydr.nav3.kmp.laydrNavSavedStateConfiguration
 import dev.goquick.laydr.nav3.kmp.laydrNavListDetailScene
 import dev.goquick.laydr.nav3.kmp.rememberLaydrNavAdaptiveScenes
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.modules.SerializersModule
+import kotlinx.serialization.modules.polymorphic
+import kotlinx.serialization.modules.subclass
 import org.koin.compose.KoinApplication
 import org.koin.dsl.koinConfiguration
 import org.koin.dsl.module
@@ -63,7 +68,8 @@ internal class ShoppingContext(
     val navigator: LaydrNavSectionsNavigator,
 )
 
-private object ShoppingSectionsRootKey : NavKey
+@Serializable
+private data object ShoppingSectionsRootKey : NavKey
 
 private data class ShoppingSectionData(
     val label: String,
@@ -114,9 +120,16 @@ fun Nav3KmpShoppingApp() {
             NotFoundContent(notFound = notFound)
         },
     )
-    val rootBackStack = remember {
-        NavBackStack<NavKey>(ShoppingSectionsRootKey)
-    }
+    val rootBackStack = rememberNavBackStack(
+        laydrNavSavedStateConfiguration(
+            serializersModule = SerializersModule {
+                polymorphic(NavKey::class) {
+                    subclass(ShoppingSectionsRootKey::class, ShoppingSectionsRootKey.serializer())
+                }
+            },
+        ),
+        ShoppingSectionsRootKey,
+    )
     val rootStack = LaydrNavRoutes.rememberStack(
         backStack = rootBackStack,
         notFoundContent = { notFound ->

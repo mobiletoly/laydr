@@ -4,7 +4,9 @@
 package dev.goquick.laydr.nav3.androidx
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.NavKey
@@ -33,12 +35,12 @@ public fun interface LaydrNavEntryMetadataProvider {
  */
 public interface LaydrNavStackNavigator {
     /**
-     * Pushes [destination] as a no-payload, no-metadata Laydr entry.
+     * Pushes [destination] as a no-payload, no-metadata route-identity entry.
      */
     public fun push(destination: LaydrScreenDestination)
 
     /**
-     * Pushes [launch] as a Laydr entry.
+     * Pushes [launch] as a distinct Laydr entry.
      */
     public fun push(launch: LaydrNavLaunch)
 
@@ -145,6 +147,10 @@ public fun rememberLaydrNavStack(
     val entryStore = remember(coordinator) {
         LaydrNavEntryStore { coordinator.backStack }
     }
+    PruneLaydrNavEntryStoreOnBackStackChange(
+        backStack = coordinator.backStack,
+        entryStore = entryStore,
+    )
     val entryProvider = laydrNavEntryProvider(
         routeDefinitions = routeDefinitions,
         sceneSupport = sceneSupport,
@@ -158,6 +164,19 @@ public fun rememberLaydrNavStack(
             entryProvider = entryProvider,
             entryStore = entryStore,
         )
+    }
+}
+
+@Composable
+private fun PruneLaydrNavEntryStoreOnBackStackChange(
+    backStack: NavBackStack<NavKey>,
+    entryStore: LaydrNavEntryStore,
+) {
+    LaunchedEffect(backStack, entryStore) {
+        snapshotFlow { backStack.toList() }
+            .collect {
+                entryStore.prune()
+            }
     }
 }
 
@@ -231,8 +250,11 @@ public class LaydrNavStack internal constructor(
             key = coordinator.validatedKey(launch.destination),
             launch = launch,
         )
-        coordinator.resetKey(key)
-        entryStore.prune()
+        try {
+            coordinator.resetKey(key)
+        } finally {
+            entryStore.prune()
+        }
     }
 
     /**
@@ -254,7 +276,8 @@ public class LaydrNavStack internal constructor(
 
     private inner class StackNavigator : LaydrNavStackNavigator {
         override fun push(destination: LaydrScreenDestination) {
-            push(LaydrNavLaunch(destination = destination))
+            coordinator.pushKey(coordinator.validatedKey(destination))
+            entryStore.prune()
         }
 
         override fun push(launch: LaydrNavLaunch) {
@@ -267,16 +290,22 @@ public class LaydrNavStack internal constructor(
         }
 
         override fun replace(destination: LaydrScreenDestination) {
-            replace(LaydrNavLaunch(destination = destination))
+            coordinator.requireCanReplaceCurrentEntry()
+            coordinator.replaceKey(coordinator.validatedKey(destination))
+            entryStore.prune()
         }
 
         override fun replace(launch: LaydrNavLaunch) {
+            coordinator.requireCanReplaceCurrentEntry()
             val key = entryStore.keyForLaunch(
                 key = coordinator.validatedKey(launch.destination),
                 launch = launch,
             )
-            coordinator.replaceKey(key)
-            entryStore.prune()
+            try {
+                coordinator.replaceKey(key)
+            } finally {
+                entryStore.prune()
+            }
         }
 
         override fun back(): Boolean =
@@ -332,12 +361,20 @@ internal class LaydrNavStackCoordinator internal constructor(
         engine.pushNewEntryKey(key.entryKey)
     }
 
+    fun pushKey(key: LaydrNavKey) {
+        engine.pushKey(key.entryKey)
+    }
+
     fun replaceExternalTarget(input: String): LaydrNavExternalTargetResult {
         return engine.replaceExternalTarget(input).toAndroidx()
     }
 
     fun replaceKey(key: LaydrNavKey) {
         engine.replaceKey(key.entryKey)
+    }
+
+    fun requireCanReplaceCurrentEntry() {
+        engine.requireCanReplaceCurrentEntry()
     }
 
     fun reset(destination: LaydrScreenDestination) {

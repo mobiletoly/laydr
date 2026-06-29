@@ -219,8 +219,8 @@ restored or opened without the expected value.
 ## Workflows
 
 Workflow hosting follows the same rule: the route entry composable owns
-dependency lookup, creates the workflow, collects outputs, and maps outputs to
-app behavior.
+dependency lookup, creates the workflow, hosts it, and maps outputs to app
+behavior.
 
 ```kotlin
 @Composable
@@ -233,13 +233,14 @@ internal fun Screen(
         CheckoutWorkflow(dependencies = dependencies, route = route, scope = scope)
     }
 
-    CollectLaydrWorkflowOutputs(workflow) { output ->
+    LaydrWorkflowHost(
+        workflow = workflow,
+        renderer = checkoutRenderer,
+    ) { output ->
         when (output) {
             CheckoutOutput.Confirmed -> navigation.openConfirmation()
         }
     }
-
-    LaydrWorkflowHost(workflow = workflow, renderer = checkoutRenderer)
 }
 ```
 

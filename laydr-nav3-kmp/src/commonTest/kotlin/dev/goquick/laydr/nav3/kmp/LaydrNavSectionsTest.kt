@@ -558,6 +558,48 @@ class LaydrNavSectionsTest {
     }
 
     @Test
+    fun sectionLaunchPushesDistinctAdaptiveDetailEntries() {
+        val graph = testGraph()
+        val sections = testSections(graph)
+        val controllers = controllersFor(
+            graph = graph,
+            sections = sections,
+            sceneSupport = testSceneSupport(graph.contacts, graph.detail),
+        )
+        val controller = LaydrNavSectionsCoordinator(
+            sections = sections,
+            initialSection = sections.items.last(),
+            sectionControllers = controllers,
+        )
+        val contactsController = controllers.getValue(sections.items.first())
+
+        controller.push(
+            LaydrNavLaunch(
+                destination = TestDestination(graph.detail.key(mapOf("id" to "alpha"))),
+                payload = "alpha",
+            ),
+        )
+        val alphaKey = contactsController.backStack.last() as LaydrNavKey
+        controller.push(
+            LaydrNavLaunch(
+                destination = TestDestination(graph.detail.key(mapOf("id" to "bravo"))),
+                payload = "bravo",
+            ),
+        )
+        val bravoKey = contactsController.backStack.last() as LaydrNavKey
+
+        assertEquals(
+            listOf(graph.contacts.key().navKey(), alphaKey, bravoKey),
+            contactsController.backStack.toList(),
+        )
+        assertEquals(graph.detail.key(mapOf("id" to "alpha")), alphaKey.toLaydrRouteKey())
+        assertEquals(graph.detail.key(mapOf("id" to "bravo")), bravoKey.toLaydrRouteKey())
+        assertEquals(2, controller.entryStore.payloadCount)
+        assertTrue(controller.entryStore.lookupPayload(alphaKey) is LaydrNavPayloadLookup.Present)
+        assertTrue(controller.entryStore.lookupPayload(bravoKey) is LaydrNavPayloadLookup.Present)
+    }
+
+    @Test
     fun sectionNavigatorCompletesTypedResultOnce() {
         val graph = testGraph()
         val sections = testSections(graph)
@@ -590,6 +632,57 @@ class LaydrNavSectionsTest {
 
         assertEquals(listOf(TestRouteResult("alpha")), results)
         assertEquals(0, cancelCount)
+        assertEquals(0, controller.entryStore.resultCount)
+    }
+
+    @Test
+    fun sameSectionResultLaunchAppendsAfterAdaptiveDetailSelection() {
+        val graph = testGraph()
+        val sections = testSections(graph)
+        val controllers = controllersFor(
+            graph = graph,
+            sections = sections,
+            sceneSupport = testSceneSupport(graph.contacts, graph.detail),
+        )
+        val controller = LaydrNavSectionsCoordinator(
+            sections = sections,
+            initialSection = sections.items.first(),
+            sectionControllers = controllers,
+        )
+        val contactsController = controllers.getValue(sections.items.first())
+        var cancelCount = 0
+
+        controller.push(TestDestination(graph.detail.key(mapOf("id" to "alpha"))))
+        controller.pushForResult(
+            launch = LaydrNavLaunch(
+                destination = TestDestination(graph.detail.key(mapOf("id" to "bravo"))),
+            ),
+            onCancel = { cancelCount += 1 },
+            resultType = TestRouteResult::class,
+        ) { _ -> }
+        val resultKey = contactsController.backStack.last() as LaydrNavKey
+
+        assertEquals(
+            listOf(
+                graph.contacts.key().navKey(),
+                graph.detail.key(mapOf("id" to "alpha")).navKey(),
+                resultKey,
+            ),
+            contactsController.backStack.toList(),
+        )
+        assertEquals(graph.detail.key(mapOf("id" to "bravo")), resultKey.toLaydrRouteKey())
+        assertEquals(1, controller.entryStore.resultCount)
+
+        assertTrue(controller.back())
+
+        assertEquals(
+            listOf(
+                graph.contacts.key().navKey(),
+                graph.detail.key(mapOf("id" to "alpha")).navKey(),
+            ),
+            contactsController.backStack.toList(),
+        )
+        assertEquals(1, cancelCount)
         assertEquals(0, controller.entryStore.resultCount)
     }
 

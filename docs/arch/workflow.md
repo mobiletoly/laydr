@@ -32,10 +32,12 @@ internal fun Screen(route: LaydrRoutes.Cart.Checkout.Review.Destination) {
     val workflow = rememberLaydrWorkflow(key = route) { scope ->
         CheckoutReviewWorkflow(route = route, scope = scope)
     }
-    CollectLaydrWorkflowOutputs(workflow = workflow) { output ->
+    LaydrWorkflowHost(
+        workflow = workflow,
+        renderer = checkoutReviewRenderer,
+    ) { output ->
         handleCheckoutReviewOutput(route, output)
     }
-    LaydrWorkflowHost(workflow = workflow, renderer = checkoutReviewRenderer)
 }
 ```
 

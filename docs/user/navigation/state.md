@@ -13,9 +13,10 @@ work.
 
 Laydr stack restoration restores destination identity, not screen state.
 
-KMP Nav3 helpers use Laydr's saved Nav3 stack path. AndroidX Nav3 helpers use
-AndroidX `NavBackStack` with `rememberNavBackStack(...)`. In both adapters, a
-restored Laydr entry contains the route id and generated route parameters.
+KMP Nav3 helpers create saved `NavBackStack` state with Laydr's key serializer
+registered. AndroidX Nav3 helpers use AndroidX `NavBackStack` with
+`rememberNavBackStack(...)`. In both adapters, a restored Laydr entry contains
+only the route id and generated route parameters.
 
 Payloads, route-result callbacks, entry tokens, and entry metadata are
 transient. Treat a process-restored entry the same way you would treat a direct

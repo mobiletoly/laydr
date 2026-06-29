@@ -19,8 +19,14 @@ navigator.replace(LaydrRoutes.Contacts.destination())
 navigator.select(LaydrRoutes.Profile)
 ```
 
-`push` adds a new entry. `replace` replaces the current Laydr entry. `select`
+Destination-only `push` moves to a generated destination using route identity:
+it avoids duplicating the same current entry and may replace the selected
+adaptive detail entry. `replace` replaces the current Laydr entry. `select`
 switches to the section that owns a destination or route ref.
+
+Use `LaydrNavLaunch` or `pushForResult(...)` when this launch needs distinct
+entry-scoped payload, result, or metadata state even if the route identity
+matches an existing entry.
 
 Use a generated destination when parameters are involved. A parameterless
 generated route ref, such as `LaydrRoutes.Profile`, is enough when the section

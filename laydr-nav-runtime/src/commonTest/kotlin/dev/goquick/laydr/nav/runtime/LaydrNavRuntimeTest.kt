@@ -168,6 +168,83 @@ class LaydrNavRuntimeTest {
     }
 
     @Test
+    fun sectionReplaceFailureOnForeignTopDoesNotMutateStateOrTransientStore() {
+        val graph = testGraph()
+        val contacts = Section(
+            id = "contacts",
+            root = TestDestination(LaydrRouteKey("Contacts")),
+        )
+        val profile = Section(
+            id = "profile",
+            root = TestDestination(LaydrRouteKey("Profile")),
+        )
+        val selected = MutableSelectedSectionState(profile.id)
+        val contactsController = stackEngine(graph, contacts.root)
+        val profileController = stackEngine(graph, profile.root)
+        val controllers = mapOf(
+            contacts to contactsController,
+            profile to profileController,
+        )
+        contactsController.backStack += ForeignKey
+        val historyEntry = LaydrNavReturnEntry(
+            sourceSectionStateId = profile.id,
+            sourceBackStack = listOf(LaydrNavEntryKey("Profile")),
+            targetSectionStateId = contacts.id,
+            targetBackStackBeforeNavigation = listOf(LaydrNavEntryKey("Contacts")),
+            targetKey = LaydrNavEntryKey("Contacts"),
+        )
+        val history = mutableListOf(historyEntry)
+        val store = LaydrNavEntryStore {
+            controllers.values.flatMap { engine -> engine.allEntryKeys().orEmpty() }
+        }
+        val engine = LaydrNavSectionsEngine(
+            sections = listOf(contacts, profile),
+            initialSection = profile,
+            selectedSectionState = selected,
+            sectionStateId = { section -> section.id },
+            sectionLabel = { section -> section.id },
+            sectionForStateId = { stateId -> listOf(contacts, profile).firstOrNull { it.id == stateId } },
+            sectionForDestination = { destination ->
+                when (destination.routeKey.routeId) {
+                    "Contacts", "Contacts.ById" -> contacts
+                    "Profile" -> profile
+                    else -> null
+                }
+            },
+            sectionForEntryKey = { key ->
+                when (key.routeId) {
+                    "Contacts", "Contacts.ById" -> contacts
+                    "Profile" -> profile
+                    else -> null
+                }
+            },
+            controllerFor = { section -> controllers.getValue(section) },
+            returnHistory = history,
+            entryStore = store,
+        )
+        val contactsStackBefore = contactsController.backStack.toList()
+        val profileStackBefore = profileController.backStack.toList()
+
+        val failure = runCatching {
+            engine.replace(
+                LaydrNavLaunch(
+                    destination = TestDestination(
+                        LaydrRouteKey("Contacts.ById", mapOf("id" to "alpha")),
+                    ),
+                    payload = "payload",
+                ),
+            )
+        }.exceptionOrNull()
+
+        assertTrue(failure is IllegalStateException)
+        assertEquals(profile, engine.selectedSection)
+        assertEquals(listOf(historyEntry), history)
+        assertEquals(contactsStackBefore, contactsController.backStack)
+        assertEquals(profileStackBefore, profileController.backStack)
+        assertEquals(0, store.payloadCount)
+    }
+
+    @Test
     fun resolvesEntriesAndClassifiesNotFoundReasons() {
         val graph = testGraph()
         val detail = LaydrNavEntryKey("Contacts.ById", mapOf("id" to "alpha"))

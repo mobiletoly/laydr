@@ -283,7 +283,7 @@ own private node stack or pass app-facing outputs back to the route shell.
 `laydr-workflow` renders the current top workflow node through explicit
 renderer registration. Apps can host route-local workflows directly from
 app-owned composables with `rememberLaydrWorkflow`,
-`CollectLaydrWorkflowOutputs`, and `LaydrWorkflowHost`.
+and `LaydrWorkflowHost(..., onOutput = ...)`.
 
 Workflow hosting is app-owned. Laydr must not generate workflow host glue,
 node classes, reducers, ViewModels, repositories, DI wiring, test skeletons, or

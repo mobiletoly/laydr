@@ -135,11 +135,12 @@ internal fun Screen(
         CheckoutWorkflow(dependencies = dependencies, route = route, scope = scope)
     }
 
-    CollectLaydrWorkflowOutputs(workflow = workflow) { output ->
+    LaydrWorkflowHost(
+        workflow = workflow,
+        renderer = checkoutRenderer,
+    ) { output ->
         navigation.handle(output)
     }
-
-    LaydrWorkflowHost(workflow = workflow, renderer = checkoutRenderer)
 }
 ```
 

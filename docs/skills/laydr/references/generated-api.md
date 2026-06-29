@@ -147,6 +147,11 @@ expect AndroidX `NavBackStack<NavKey>`. KMP helpers expect the KMP Nav3
 `NavBackStack<NavKey>`. Do not use `SnapshotStateList<NavKey>` for AndroidX
 generated stack helpers.
 
+For KMP mixed parent stacks that must restore after process death, create the
+parent stack with `rememberNavBackStack(...)` and pass
+`laydrNavSavedStateConfiguration(serializersModule = ...)` so Laydr keys and
+app-owned foreign keys are registered together.
+
 Layout-only routes do not generate `destination()`. Dynamic section roots pass
 an explicit root destination:
 

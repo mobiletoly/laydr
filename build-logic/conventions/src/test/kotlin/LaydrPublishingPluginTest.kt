@@ -15,7 +15,7 @@ class LaydrPublishingPluginTest {
 
         project.pluginManager.apply(LaydrPublishingPlugin::class.java)
 
-        assertEquals("0.1.0-SNAPSHOT", project.version.toString())
+        assertEquals("0.2.0-SNAPSHOT", project.version.toString())
     }
 
     @Test

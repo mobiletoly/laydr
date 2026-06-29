@@ -112,7 +112,10 @@ NavDisplay(
 
 For app-owned parent stacks, use the `backStack = ...` overload. Laydr mutates
 only the trailing Laydr suffix after the last foreign key; the app renders
-foreign keys in its own entry provider.
+foreign keys in its own entry provider. When the parent stack must restore
+after process death, create it with `rememberNavBackStack(...)` and a
+`laydrNavSavedStateConfiguration(serializersModule = ...)` that includes
+serializers for every app-owned foreign key.
 
 Owner-facing operations such as `reset(...)`, `pushExternalTarget(...)`, and
 `replaceExternalTarget(...)` stay on the stack or sections owner. Route-facing

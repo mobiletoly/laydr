@@ -98,7 +98,16 @@ what any entry metadata means.
 For app-owned or mixed parent stacks, pass an existing `NavBackStack<NavKey>`:
 
 ```kotlin
-val rootBackStack = rememberNavBackStack<NavKey>(MainShellRoute.Sections)
+val rootBackStack = rememberNavBackStack(
+    laydrNavSavedStateConfiguration(
+        serializersModule = SerializersModule {
+            polymorphic(NavKey::class) {
+                subclass(MainShellRoute.Sections::class, MainShellRoute.Sections.serializer())
+            }
+        },
+    ),
+    MainShellRoute.Sections,
+)
 val rootStack = rememberLaydrNavStack(
     routeDefinitions = LaydrComposeRoutes.definitions,
     backStack = rootBackStack,
@@ -107,11 +116,14 @@ val rootStack = rememberLaydrNavStack(
 ```
 
 Laydr mutates only the trailing Laydr suffix after the last foreign key.
-Foreign keys before that suffix are preserved. `push(...)` appends a Laydr
-entry, `replace(...)` requires a Laydr key at the top, route-facing `back()`
-returns `false` when the top entry is foreign, and owner-facing `reset(...)`
-replaces only the trailing Laydr suffix. This lets an app keep shell marker
-keys in the same Nav3 stack without making Laydr own root app policy.
+Foreign keys before that suffix are preserved. Destination-only `push(...)`
+uses route identity and adaptive scene rules to avoid duplicating an already
+selected detail entry; `push(LaydrNavLaunch)` and result launches create a
+distinct transient entry. `replace(...)` requires a Laydr key at the top,
+route-facing `back()` returns `false` when the top entry is foreign, and
+owner-facing `reset(...)` replaces only the trailing Laydr suffix. This lets an
+app keep shell marker keys in the same Nav3 stack without making Laydr own root
+app policy.
 
 The initial destination is always a generated screen destination. A route can
 be both a parent directory and a stack target by declaring `screen`; it only
@@ -519,9 +531,11 @@ display path, and a reason enum. When adaptive scenes are configured, the same
 entry provider attaches metadata only to resolved matching list or detail
 screen routes; not-found entries receive no scene metadata.
 
-Nav3 KMP saved-state back stacks need the Laydr key serializer
-registered in the runtime configuration. The controller supplies Laydr's
-configuration by default; low-level stack code can still use it directly:
+Nav3 KMP saved-state back stacks need the Laydr key serializer registered in
+the runtime configuration. The controller supplies Laydr's configuration by
+default. Mixed stacks with app-owned foreign keys must merge the app's
+serializers into the same configuration. Low-level stack code can still use it
+directly:
 
 ```kotlin
 val backStack = rememberNavBackStack(

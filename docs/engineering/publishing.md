@@ -9,7 +9,7 @@ Published coordinates are controlled by `gradle.properties`:
 
 ```properties
 laydr.group=dev.goquick.laydr
-laydr.version=0.1.0-SNAPSHOT
+laydr.version=0.2.0-SNAPSHOT
 ```
 
 The root build applies these values to product subprojects. The
@@ -19,8 +19,7 @@ The root build applies these values to product subprojects. The
 Remote publishing requires an explicit `laydr.version` from the current build
 or parent `../gradle.properties`. If no version is configured,
 `laydr.publishing` fails remote publish tasks instead of silently publishing a
-snapshot. The local `0.1.0-SNAPSHOT` fallback is only a development convenience
-for non-remote tasks and `publishToMavenLocal`.
+snapshot.
 
 The standalone plugin build includes `laydr-codegen` for plugin implementation
 but intentionally does not include `laydr-core`; codegen emits core symbol

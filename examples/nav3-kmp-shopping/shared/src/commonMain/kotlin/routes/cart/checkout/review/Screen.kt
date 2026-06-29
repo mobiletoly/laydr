@@ -5,7 +5,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import dev.goquick.laydr.examples.nav3kmpshopping.*
 import dev.goquick.laydr.examples.nav3kmpshopping.generated.LaydrRoutes
-import dev.goquick.laydr.workflow.CollectLaydrWorkflowOutputs
 import dev.goquick.laydr.workflow.LaydrWorkflow
 import dev.goquick.laydr.workflow.LaydrWorkflowNode
 import dev.goquick.laydr.workflow.LaydrStatefulWorkflowNode
@@ -153,7 +152,10 @@ internal fun Screen(
             route = route,
         )
     }
-    CollectLaydrWorkflowOutputs(workflow = workflow) { output ->
+    LaydrWorkflowHost(
+        workflow = workflow,
+        renderer = ReviewRenderer,
+    ) { output ->
         when (output) {
             ReviewWorkflowOutput.ReturnToCart ->
                 app.navigator.replace(LaydrRoutes.Cart.destination())
@@ -163,7 +165,6 @@ internal fun Screen(
             ReviewWorkflowOutput.CancelSubmit -> Unit
         }
     }
-    LaydrWorkflowHost(workflow = workflow, renderer = ReviewRenderer)
 }
 
 @Composable

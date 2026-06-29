@@ -423,6 +423,44 @@ class LaydrNavStackTest {
     }
 
     @Test
+    fun stackNavigatorDestinationPushUsesAdaptiveDetailSelection() {
+        val graph = testGraph()
+        val stack = LaydrNavStack(
+            coordinator = LaydrNavStackCoordinator(
+                appGraph = graph.appGraph,
+                backStack = NavBackStack<NavKey>(graph.contacts.key().navKey()),
+                sceneSupport = testSceneSupport(graph.contacts, graph.detail),
+            ),
+            entryProvider = { key -> NavEntry(key = key) {} },
+        )
+        val alpha = graph.detail.key(mapOf("id" to "alpha")).navKey()
+        val bravo = graph.detail.key(mapOf("id" to "bravo")).navKey()
+        val charlie = graph.detail.key(mapOf("id" to "charlie")).navKey()
+
+        stack.navigator.push(TestDestination(alpha.toLaydrRouteKey()))
+        stack.navigator.push(TestDestination(bravo.toLaydrRouteKey()))
+
+        assertEquals(
+            listOf(graph.contacts.key().navKey(), bravo),
+            stack.backStack.toList(),
+        )
+
+        stack.navigator.push(
+            LaydrNavLaunch(
+                destination = TestDestination(charlie.toLaydrRouteKey()),
+                payload = "charlie",
+            ),
+        )
+
+        assertEquals(
+            listOf(graph.contacts.key().navKey(), bravo, stack.backStack.last()),
+            stack.backStack.toList(),
+        )
+        assertEquals(charlie.toLaydrRouteKey(), (stack.backStack.last() as LaydrNavKey).toLaydrRouteKey())
+        assertEquals(1, stack.entryStore.payloadCount)
+    }
+
+    @Test
     fun validatesInitialDestinationKeyPath() {
         val (appGraph, contacts, _, settings) = testGraph()
 
@@ -685,6 +723,30 @@ class LaydrNavStackTest {
 
         assertTrue(externalFailure.message?.contains("Use push(...) or owner-facing reset(...)") == true)
         assertEquals(listOf(ForeignKey), stack.backStack.toList())
+    }
+
+    @Test
+    fun replaceLaunchFailureOnForeignTopDoesNotRetainPayload() {
+        val graph = testGraph()
+        val stack = LaydrNavStack(
+            coordinator = LaydrNavStackCoordinator(
+                appGraph = graph.appGraph,
+                backStack = NavBackStack<NavKey>(ForeignKey),
+            ),
+            entryProvider = { key -> NavEntry(key = key) {} },
+        )
+
+        assertFailsWith<IllegalStateException> {
+            stack.navigator.replace(
+                LaydrNavLaunch(
+                    destination = TestDestination(graph.detail.key(mapOf("id" to "alpha"))),
+                    payload = "payload",
+                ),
+            )
+        }
+
+        assertEquals(listOf(ForeignKey), stack.backStack.toList())
+        assertEquals(0, stack.entryStore.payloadCount)
     }
 
     @Test

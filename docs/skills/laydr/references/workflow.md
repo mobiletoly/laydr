@@ -86,7 +86,7 @@ Build the workflow in this order:
    `replaceAll(...)`, or `back()`.
 5. Register node UI with `laydrWorkflowRenderer { register<Node> { ... } }`.
 6. Host from route-owned `Screen(...)` with `rememberLaydrWorkflow`,
-   `CollectLaydrWorkflowOutputs`, and `LaydrWorkflowHost`.
+   and `LaydrWorkflowHost(..., onOutput = ...)`.
 7. Map workflow outputs to app behavior in the route screen. Use generated
    Laydr destinations for navigation.
 
@@ -204,7 +204,10 @@ internal fun Screen(
         )
     }
 
-    CollectLaydrWorkflowOutputs(workflow = workflow) { output ->
+    LaydrWorkflowHost(
+        workflow = workflow,
+        renderer = CheckoutRenderer,
+    ) { output ->
         when (output) {
             CheckoutOutput.Finished ->
                 navigation.replace(
@@ -214,13 +217,11 @@ internal fun Screen(
             CheckoutOutput.CancelSubmit -> Unit
         }
     }
-
-    LaydrWorkflowHost(workflow = workflow, renderer = CheckoutRenderer)
 }
 ```
 
-Stack-only outputs still reach `CollectLaydrWorkflowOutputs`; ignore them in
-the route screen when they only drive private workflow stack transitions.
+Stack-only outputs still reach the host output callback; ignore them in the
+route screen when they only drive private workflow stack transitions.
 
 Platform Back is not automatic. If a route should Back through workflow nodes,
 wire app-owned Back handling to call `workflow.back()` when

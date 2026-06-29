@@ -42,11 +42,23 @@ the parent Nav3 stack and lets Laydr manage only the Laydr suffix.
 
 Use the `backStack = ...` overload:
 
+For KMP mixed stacks, register both Laydr and app-owned foreign keys in the
+saved-state configuration:
+
 ```kotlin
 @Serializable
-data object ShellRoot : NavKey
+data object ShellRootKey : NavKey
 
-val rootBackStack = remember { NavBackStack<NavKey>(ShellRoot) }
+val rootBackStack = rememberNavBackStack(
+    laydrNavSavedStateConfiguration(
+        serializersModule = SerializersModule {
+            polymorphic(NavKey::class) {
+                subclass(ShellRootKey::class, ShellRootKey.serializer())
+            }
+        },
+    ),
+    ShellRootKey,
+)
 
 val rootStack = LaydrNavRoutes.rememberStack(
     backStack = rootBackStack,
@@ -61,8 +73,10 @@ foreign keys in `NavDisplay`.
 Use the stack container from the adapter you enabled. AndroidX apps pass an
 AndroidX `NavBackStack<NavKey>` and should create it with
 `rememberNavBackStack(...)` when the parent stack must survive process death.
-KMP apps that need process-death restore for app-owned foreign keys must use a
-`SavedStateConfiguration` that registers both Laydr keys and those app keys.
+KMP apps that need process-death restore for app-owned foreign keys must create
+the parent stack with `rememberNavBackStack(...)` and a
+`laydrNavSavedStateConfiguration(...)` that merges Laydr's key serializer with
+the app's foreign-key serializers.
 
 ## Owner-Facing Vs Route-Facing Operations
 

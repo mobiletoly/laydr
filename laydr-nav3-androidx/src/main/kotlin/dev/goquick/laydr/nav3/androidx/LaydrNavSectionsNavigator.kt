@@ -22,7 +22,8 @@ public interface LaydrNavSectionsNavigator {
     public fun select(route: LaydrParameterlessScreenRouteRef)
 
     /**
-     * Pushes [destination] as a no-payload, no-metadata section entry.
+     * Pushes [destination] as a no-payload, no-metadata route-identity section
+     * entry.
      */
     public fun push(destination: LaydrScreenDestination)
 

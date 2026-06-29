@@ -169,6 +169,19 @@ public class LaydrNavStackEngine<Key : Any> public constructor(
     }
 
     /**
+     * Fails when the current top is a foreign adapter key and therefore cannot
+     * be replaced by Laydr.
+     */
+    public fun requireCanReplaceCurrentEntry() {
+        if (backStack.isNotEmpty() && backStack.lastOrNull()?.let(keyAdapter::entryKey) == null) {
+            error(
+                "Cannot replace the top Nav3 entry because it is not a LaydrNavKey. " +
+                    "Use push(...) or owner-facing reset(...) for mixed stacks.",
+            )
+        }
+    }
+
+    /**
      * Replaces the current Laydr entry with [destination].
      */
     public fun replace(destination: LaydrScreenDestination) {
@@ -201,12 +214,7 @@ public class LaydrNavStackEngine<Key : Any> public constructor(
      * Replaces the current Laydr entry with [key].
      */
     public fun replaceKey(key: LaydrNavEntryKey) {
-        if (backStack.isNotEmpty() && backStack.lastOrNull()?.let(keyAdapter::entryKey) == null) {
-            error(
-                "Cannot replace the top Nav3 entry because it is not a LaydrNavKey. " +
-                    "Use push(...) or owner-facing reset(...) for mixed stacks.",
-            )
-        }
+        requireCanReplaceCurrentEntry()
         val expandedStack = sceneSupport.expandedStackFor(key)
         if (expandedStack != null) {
             replaceLaydrSuffix(expandedStack)

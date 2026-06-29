@@ -138,26 +138,56 @@ public class LaydrNavSectionsEngine<Section : Any, Key : Any> public constructor
         }
 
     /**
+     * Pushes [destination] on the owning section stack using route identity.
+     */
+    public fun push(destination: LaydrScreenDestination) {
+        val section = requireOwningSection(destination)
+        val controller = controllerFor(section)
+        val key = controller.validatedKey(destination)
+        val clearReturnHistory = section != selectedSection
+        controller.pushKey(key)
+        if (clearReturnHistory) {
+            returnHistory.clear()
+        }
+        selectedSectionState.value = sectionStateId(section)
+        entryStore.prune()
+    }
+
+    /**
      * Pushes [launch] on the owning section stack.
      */
     public fun push(launch: LaydrNavLaunch) {
         val section = requireOwningSection(launch.destination)
-        clearReturnHistoryForOrdinaryNavigation(section)
-        selectedSectionState.value = sectionStateId(section)
         val controller = controllerFor(section)
+        val validatedKey = controller.validatedKey(launch.destination)
+        val clearReturnHistory = section != selectedSection
         val key = entryStore.keyForLaunch(
-            key = controller.validatedKey(launch.destination),
+            key = validatedKey,
             launch = launch,
         )
-        controller.pushKey(key)
-        entryStore.prune()
+        try {
+            controller.pushNewEntryKey(key)
+            if (clearReturnHistory) {
+                returnHistory.clear()
+            }
+            selectedSectionState.value = sectionStateId(section)
+        } finally {
+            entryStore.prune()
+        }
+    }
+
+    /**
+     * Pushes [destination] and records return history.
+     */
+    public fun pushWithReturn(destination: LaydrScreenDestination) {
+        navigateWithReturn(destination) { key -> pushKey(key) }
     }
 
     /**
      * Pushes [launch] and records return history.
      */
     public fun pushWithReturn(launch: LaydrNavLaunch) {
-        navigateWithReturn(launch) { key -> pushKey(key) }
+        navigateWithReturn(launch) { key -> pushNewEntryKey(key) }
     }
 
     /**
@@ -195,22 +225,30 @@ public class LaydrNavSectionsEngine<Section : Any, Key : Any> public constructor
      */
     public fun replace(launch: LaydrNavLaunch) {
         val section = requireOwningSection(launch.destination)
-        clearReturnHistoryForOrdinaryNavigation(section)
-        selectedSectionState.value = sectionStateId(section)
         val controller = controllerFor(section)
+        val validatedKey = controller.validatedKey(launch.destination)
+        controller.requireCanReplaceCurrentEntry()
         val key = entryStore.keyForLaunch(
-            key = controller.validatedKey(launch.destination),
+            key = validatedKey,
             launch = launch,
         )
-        controller.replaceKey(key)
-        entryStore.prune()
+        try {
+            controller.replaceKey(key)
+            clearReturnHistoryForOrdinaryNavigation(section)
+            selectedSectionState.value = sectionStateId(section)
+        } finally {
+            entryStore.prune()
+        }
     }
 
     /**
      * Replaces with [launch] and records return history.
      */
     public fun replaceWithReturn(launch: LaydrNavLaunch) {
-        navigateWithReturn(launch) { key -> replaceKey(key) }
+        navigateWithReturn(
+            launch = launch,
+            preflight = { requireCanReplaceCurrentEntry() },
+        ) { key -> replaceKey(key) }
     }
 
     /**
@@ -219,10 +257,15 @@ public class LaydrNavSectionsEngine<Section : Any, Key : Any> public constructor
     public fun replacePath(path: String): LaydrNavPathResult =
         when (val target = pathTarget(path)) {
             is AcceptedPathTarget -> {
-                clearReturnHistoryForOrdinaryNavigation(target.section)
-                selectedSectionState.value = sectionStateId(target.section)
-                controllerFor(target.section).replaceKey(target.result.key)
-                entryStore.prune()
+                val controller = controllerFor(target.section)
+                controller.requireCanReplaceCurrentEntry()
+                try {
+                    controller.replaceKey(target.result.key)
+                    clearReturnHistoryForOrdinaryNavigation(target.section)
+                    selectedSectionState.value = sectionStateId(target.section)
+                } finally {
+                    entryStore.prune()
+                }
                 target.result
             }
             is RejectedPathTarget -> target.result
@@ -235,10 +278,15 @@ public class LaydrNavSectionsEngine<Section : Any, Key : Any> public constructor
     public fun replaceExternalTarget(input: String): LaydrNavExternalTargetResult =
         when (val target = externalTarget(input)) {
             is AcceptedExternalTarget -> {
-                clearReturnHistoryForOrdinaryNavigation(target.section)
-                selectedSectionState.value = sectionStateId(target.section)
-                controllerFor(target.section).replaceKey(target.result.key)
-                entryStore.prune()
+                val controller = controllerFor(target.section)
+                controller.requireCanReplaceCurrentEntry()
+                try {
+                    controller.replaceKey(target.result.key)
+                    clearReturnHistoryForOrdinaryNavigation(target.section)
+                    selectedSectionState.value = sectionStateId(target.section)
+                } finally {
+                    entryStore.prune()
+                }
                 target.result
             }
             is RejectedExternalTarget -> target.result
@@ -263,7 +311,7 @@ public class LaydrNavSectionsEngine<Section : Any, Key : Any> public constructor
                 onCancel = onCancel,
                 onResult = onResult,
             )
-            controller.pushKey(key)
+            controller.pushNewEntryKey(key)
             entryStore.prune()
             return
         }
@@ -279,7 +327,7 @@ public class LaydrNavSectionsEngine<Section : Any, Key : Any> public constructor
                     onResult = onResult,
                 )
             },
-        ) { key -> pushKey(key) }
+        ) { key -> pushNewEntryKey(key) }
     }
 
     /**
@@ -314,12 +362,29 @@ public class LaydrNavSectionsEngine<Section : Any, Key : Any> public constructor
     }
 
     private fun navigateWithReturn(
-        launch: LaydrNavLaunch,
+        destination: LaydrScreenDestination,
+        preflight: LaydrNavStackEngine<Key>.() -> Unit = {},
         operation: LaydrNavStackEngine<Key>.(LaydrNavEntryKey) -> Unit,
     ) {
         navigateWithReturn(
-            launch = launch,
-            keyForLaunch = { controller ->
+            destination = destination,
+            preflight = preflight,
+            keyForNavigation = { controller ->
+                controller.validatedKey(destination)
+            },
+            operation = operation,
+        )
+    }
+
+    private fun navigateWithReturn(
+        launch: LaydrNavLaunch,
+        preflight: LaydrNavStackEngine<Key>.() -> Unit = {},
+        operation: LaydrNavStackEngine<Key>.(LaydrNavEntryKey) -> Unit,
+    ) {
+        navigateWithReturn(
+            destination = launch.destination,
+            preflight = preflight,
+            keyForNavigation = { controller ->
                 entryStore.keyForLaunch(
                     key = controller.validatedKey(launch.destination),
                     launch = launch,
@@ -331,20 +396,39 @@ public class LaydrNavSectionsEngine<Section : Any, Key : Any> public constructor
 
     private fun navigateWithReturn(
         launch: LaydrNavLaunch,
+        preflight: LaydrNavStackEngine<Key>.() -> Unit = {},
         keyForLaunch: (LaydrNavStackEngine<Key>) -> LaydrNavEntryKey,
         operation: LaydrNavStackEngine<Key>.(LaydrNavEntryKey) -> Unit,
     ) {
-        val targetSection = requireOwningSection(launch.destination)
+        navigateWithReturn(
+            destination = launch.destination,
+            preflight = preflight,
+            keyForNavigation = keyForLaunch,
+            operation = operation,
+        )
+    }
+
+    private fun navigateWithReturn(
+        destination: LaydrScreenDestination,
+        preflight: LaydrNavStackEngine<Key>.() -> Unit = {},
+        keyForNavigation: (LaydrNavStackEngine<Key>) -> LaydrNavEntryKey,
+        operation: LaydrNavStackEngine<Key>.(LaydrNavEntryKey) -> Unit,
+    ) {
+        val targetSection = requireOwningSection(destination)
         val sourceSection = selectedSection
         val sourceController = selectedController
         val targetController = controllerFor(targetSection)
         val sourceStack = sourceController.allEntryKeys()
         val targetStackBefore = targetController.allEntryKeys()
-        val key = keyForLaunch(targetController)
+        targetController.preflight()
+        val key = keyForNavigation(targetController)
 
+        try {
+            targetController.operation(key)
+        } finally {
+            entryStore.prune()
+        }
         selectedSectionState.value = sectionStateId(targetSection)
-        targetController.operation(key)
-        entryStore.prune()
 
         val targetStackAfter = targetController.allEntryKeys() ?: return
         val targetKey = targetStackAfter.lastOrNull() ?: return

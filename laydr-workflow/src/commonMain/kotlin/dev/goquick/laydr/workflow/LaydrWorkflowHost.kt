@@ -4,17 +4,22 @@
 package dev.goquick.laydr.workflow
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
- * Remembers a [LaydrWorkflow] and ties its lifecycle to composition.
+ * Remembers a [LaydrWorkflow].
  *
  * @param key value that recreates the workflow when it changes.
  * @param factory creates the workflow with the composition coroutine scope.
@@ -25,18 +30,9 @@ public fun <Output : Any> rememberLaydrWorkflow(
     factory: (CoroutineScope) -> LaydrWorkflow<Output>,
 ): LaydrWorkflow<Output> {
     val scope = rememberCoroutineScope()
-    val workflow = remember(key) {
+    return remember(key) {
         factory(scope)
     }
-    LaunchedEffect(workflow) {
-        workflow.start()
-    }
-    DisposableEffect(workflow) {
-        onDispose {
-            workflow.dispose()
-        }
-    }
-    return workflow
 }
 
 /**
@@ -105,11 +101,66 @@ public fun <Output : Any> laydrWorkflowRenderer(
 /**
  * Renders the current top workflow node with [renderer].
  *
+ * This overload starts [workflow] when it enters composition and disposes it
+ * when it leaves composition.
+ *
  * This host does not own app Back or app navigation. App or route-local UI can
  * call [LaydrWorkflow.back] explicitly when it wants workflow-local Back.
  */
 @Composable
 public fun <Output : Any> LaydrWorkflowHost(
+    workflow: LaydrWorkflow<Output>,
+    renderer: LaydrWorkflowRenderer<Output>,
+) {
+    LaunchedEffect(workflow) {
+        try {
+            workflow.start()
+            awaitCancellation()
+        } finally {
+            withContext(NonCancellable) {
+                workflow.dispose()
+            }
+        }
+    }
+    RenderLaydrWorkflowTop(workflow = workflow, renderer = renderer)
+}
+
+/**
+ * Starts [workflow], collects app-facing outputs, and renders its current top
+ * node with [renderer].
+ *
+ * Output collection is installed before [LaydrWorkflow.start], so outputs
+ * emitted from node attach hooks are delivered to [onOutput].
+ */
+@Composable
+public fun <Output : Any> LaydrWorkflowHost(
+    workflow: LaydrWorkflow<Output>,
+    renderer: LaydrWorkflowRenderer<Output>,
+    onOutput: suspend (Output) -> Unit,
+) {
+    val currentOnOutput by rememberUpdatedState(onOutput)
+
+    LaunchedEffect(workflow) {
+        val outputsJob = launch(start = CoroutineStart.UNDISPATCHED) {
+            workflow.outputs.collect { output ->
+                currentOnOutput(output)
+            }
+        }
+        try {
+            workflow.start()
+            awaitCancellation()
+        } finally {
+            withContext(NonCancellable) {
+                outputsJob.cancelAndJoin()
+                workflow.dispose()
+            }
+        }
+    }
+    RenderLaydrWorkflowTop(workflow = workflow, renderer = renderer)
+}
+
+@Composable
+private fun <Output : Any> RenderLaydrWorkflowTop(
     workflow: LaydrWorkflow<Output>,
     renderer: LaydrWorkflowRenderer<Output>,
 ) {
@@ -120,6 +171,9 @@ public fun <Output : Any> LaydrWorkflowHost(
 /**
  * Collects app-facing workflow outputs while [workflow] is in composition.
  */
+@Deprecated(
+    message = "Use LaydrWorkflowHost(workflow, renderer, onOutput) so output collection starts before workflow.start().",
+)
 @Composable
 public fun <Output : Any> CollectLaydrWorkflowOutputs(
     workflow: LaydrWorkflow<Output>,

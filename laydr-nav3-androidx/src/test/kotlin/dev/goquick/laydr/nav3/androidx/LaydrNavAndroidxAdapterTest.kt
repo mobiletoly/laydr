@@ -132,6 +132,30 @@ class LaydrNavAndroidxAdapterTest {
     }
 
     @Test
+    fun replaceLaunchFailureOnForeignTopDoesNotRetainPayload() {
+        val graph = testGraph()
+        val stack = LaydrNavStack(
+            coordinator = LaydrNavStackCoordinator(
+                appGraph = graph.appGraph,
+                backStack = NavBackStack<NavKey>(ForeignKey),
+            ),
+            entryProvider = { key -> androidx.navigation3.runtime.NavEntry(key = key) {} },
+        )
+
+        assertFailsWith<IllegalStateException> {
+            stack.navigator.replace(
+                LaydrNavLaunch(
+                    destination = TestDestination(graph.detail.key(mapOf("id" to "alpha"))),
+                    payload = "payload",
+                ),
+            )
+        }
+
+        assertEquals(listOf(ForeignKey), stack.backStack.toList())
+        assertEquals(0, stack.entryStore.payloadCount)
+    }
+
+    @Test
     fun stackPrunesPayloadsAndCompletesResultsThroughSharedEntryStore() {
         val graph = testGraph()
         val stack = LaydrNavStack(
