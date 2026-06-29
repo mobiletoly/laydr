@@ -43,7 +43,10 @@ the parent Nav3 stack and lets Laydr manage only the Laydr suffix.
 Use the `backStack = ...` overload:
 
 ```kotlin
-val rootBackStack = remember { mutableStateListOf<Any>(ShellRoot) }
+@Serializable
+data object ShellRoot : NavKey
+
+val rootBackStack = remember { NavBackStack<NavKey>(ShellRoot) }
 
 val rootStack = LaydrNavRoutes.rememberStack(
     backStack = rootBackStack,
@@ -54,6 +57,12 @@ val rootStack = LaydrNavRoutes.rememberStack(
 `rootBackStack` is app-owned Nav3 state. Laydr mutates only the trailing Laydr
 entries after the last foreign key. Your app remains responsible for rendering
 foreign keys in `NavDisplay`.
+
+Use the stack container from the adapter you enabled. AndroidX apps pass an
+AndroidX `NavBackStack<NavKey>` and should create it with
+`rememberNavBackStack(...)` when the parent stack must survive process death.
+KMP apps that need process-death restore for app-owned foreign keys must use a
+`SavedStateConfiguration` that registers both Laydr keys and those app keys.
 
 ## Owner-Facing Vs Route-Facing Operations
 

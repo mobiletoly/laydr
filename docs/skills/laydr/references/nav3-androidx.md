@@ -73,6 +73,12 @@ sections.navigator.push(
 
 Single-stack apps use `LaydrNavRoutes.rememberStack(initialDestination = ...)`.
 Mixed parent stacks use `LaydrNavRoutes.rememberStack(backStack = ...)`.
+For mixed parent stacks, pass an AndroidX `NavBackStack<NavKey>`.
+
+Default AndroidX helpers create stack state with AndroidX
+`rememberNavBackStack(...)`, so route identity restores across configuration
+changes and Android process death. Restored Laydr entries contain route id and
+route parameters only.
 
 ## Boundaries
 
@@ -83,6 +89,9 @@ deep links, auth, analytics, and themes.
 Payloads, typed result sinks, and entry metadata are transient entry-scoped
 values. Use nullable accessors when route content can recover from
 destination-only or process-restored entries.
+
+Foreign keys in app-owned mixed stacks are app-owned. If they must restore
+after process death, make them serializable AndroidX `NavKey`s.
 
 AndroidX adaptive scene support is not implemented. Do not scaffold AndroidX
 adaptive Laydr APIs.

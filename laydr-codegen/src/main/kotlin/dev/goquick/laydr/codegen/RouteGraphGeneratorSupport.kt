@@ -36,7 +36,6 @@ internal val laydrComposeScreenAndLayoutRouteDefinitionClass =
     ClassName("dev.goquick.laydr.compose", "LaydrComposeScreenAndLayoutRouteDefinition")
 private val navBackStackClass = ClassName("androidx.navigation3.runtime", "NavBackStack")
 internal val navKeyClass = ClassName("androidx.navigation3.runtime", "NavKey")
-private val snapshotStateListClass = ClassName("androidx.compose.runtime.snapshots", "SnapshotStateList")
 internal val savedStateConfigurationClass =
     ClassName("androidx.savedstate.serialization", "SavedStateConfiguration")
 internal val jvmInlineClass = ClassName("kotlin.jvm", "JvmInline")
@@ -151,7 +150,7 @@ private fun nav3HelperSymbols(
         laydrNavSceneSupportClass = ClassName(packageName, "LaydrNavSceneSupport"),
         laydrNavNotFoundClass = ClassName(packageName, "LaydrNavNotFound"),
         laydrNavSectionEntryContextClass = ClassName(packageName, "LaydrNavSectionEntryContext"),
-        backStackClass = if (savedStateConfigurationMember == null) snapshotStateListClass else navBackStackClass,
+        backStackClass = navBackStackClass,
         laydrNavSectionMember = MemberName(packageName, "laydrNavSection"),
         rememberLaydrNavSectionsMember = MemberName(packageName, "rememberLaydrNavSections"),
         rememberLaydrNavStackMember = MemberName(packageName, "rememberLaydrNavStack"),

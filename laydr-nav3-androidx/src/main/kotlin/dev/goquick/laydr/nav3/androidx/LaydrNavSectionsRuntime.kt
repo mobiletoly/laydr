@@ -9,6 +9,11 @@ import dev.goquick.laydr.compose.LaydrComposeRouteDefinitions
 
 /**
  * Remembers complete Laydr AndroidX Nav3 section runtime wiring.
+ *
+ * Each section owns an AndroidX [androidx.navigation3.runtime.NavBackStack]
+ * remembered with AndroidX saved-stack state. Restored Laydr entries contain
+ * route id and route parameters only; payloads, route-result callbacks, entry
+ * tokens, and entry metadata are transient.
  */
 @Composable
 public fun <Data : Any> rememberLaydrNavSections(

@@ -74,6 +74,17 @@ Android-only route files live in `src/main/kotlin/routes`, not
 AndroidX back stacks use AndroidX Navigation 3 types. Use the AndroidX adapter
 in Android modules and the KMP adapter in shared KMP modules.
 
+Generated AndroidX helpers use AndroidX `NavBackStack` with
+`rememberNavBackStack(...)` for their default section and stack state. That
+restores destination stack identity across configuration changes and Android
+process death. Restored Laydr entries carry route id and route parameters;
+payloads, result callbacks, entry tokens, and entry metadata remain transient.
+
+For mixed parent stacks, pass an app-owned `NavBackStack<NavKey>` to
+`LaydrNavRoutes.rememberStack(backStack = ...)`. Foreign keys in that stack are
+app-owned; if they need process-death restore, they must be serializable
+AndroidX `NavKey`s.
+
 AndroidX adaptive scene support is not currently part of this adapter. Do not
 depend on AndroidX adaptive Laydr APIs.
 

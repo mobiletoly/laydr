@@ -4,11 +4,11 @@
 package dev.goquick.laydr.nav3.androidx
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.NavKey
+import androidx.navigation3.runtime.rememberNavBackStack
 import dev.goquick.laydr.compose.LaydrComposeRouteDefinitions
 import dev.goquick.laydr.core.LaydrAppGraph
 import dev.goquick.laydr.core.LaydrScreenDestination
@@ -88,6 +88,12 @@ public inline fun <reified Result : Any> LaydrNavStackNavigator.pushForResult(
 
 /**
  * Remembers one pure Laydr-managed AndroidX Nav3 stack.
+ *
+ * The created stack is an AndroidX [NavBackStack] remembered with
+ * `rememberNavBackStack`, so Laydr route identity restores across Android
+ * process death. Restored entries contain route id and route parameters only;
+ * payloads, route-result callbacks, entry tokens, and entry metadata are
+ * transient.
  */
 @Composable
 public fun rememberLaydrNavStack(
@@ -100,9 +106,7 @@ public fun rememberLaydrNavStack(
     notFoundContent: @Composable (notFound: LaydrNavNotFound) -> Unit,
 ): LaydrNavStack {
     val initialKey = routeDefinitions.appGraph.validatedNavKey(initialDestination)
-    val backStack = remember(routeDefinitions.appGraph, initialKey) {
-        mutableStateListOf<NavKey>(initialKey)
-    }
+    val backStack = rememberNavBackStack(initialKey)
     return rememberLaydrNavStack(
         routeDefinitions = routeDefinitions,
         backStack = backStack,
@@ -115,11 +119,16 @@ public fun rememberLaydrNavStack(
 /**
  * Remembers Laydr management attached to an app-owned or mixed AndroidX Nav3
  * stack.
+ *
+ * Pass an AndroidX [NavBackStack] whose elements implement [NavKey]. Laydr
+ * navigation mutates only the trailing Laydr suffix after the last foreign
+ * key. Foreign keys are app-owned and must be AndroidX-serializable when the
+ * parent stack needs process-death restoration.
  */
 @Composable
 public fun rememberLaydrNavStack(
     routeDefinitions: LaydrComposeRouteDefinitions,
-    backStack: SnapshotStateList<NavKey>,
+    backStack: NavBackStack<NavKey>,
     sceneSupport: LaydrNavSceneSupport = LaydrNavSceneSupport.None,
     entryMetadata: LaydrNavEntryMetadataProvider = LaydrNavEntryMetadataProvider {
         LaydrNavEntryMetadata.Empty
@@ -159,9 +168,7 @@ internal fun rememberLaydrNavStackCoordinator(
     sceneSupport: LaydrNavSceneSupport = LaydrNavSceneSupport.None,
 ): LaydrNavStackCoordinator {
     val initialKey = appGraph.validatedNavKey(initialDestination)
-    val backStack = remember(appGraph, initialKey) {
-        mutableStateListOf<NavKey>(initialKey)
-    }
+    val backStack = rememberNavBackStack(initialKey)
     return remember(appGraph, backStack, sceneSupport) {
         LaydrNavStackCoordinator(
             appGraph = appGraph,
@@ -188,7 +195,7 @@ public class LaydrNavStack internal constructor(
     /**
      * Mutable AndroidX Nav3 back stack owned by the app or by this Laydr stack.
      */
-    public val backStack: SnapshotStateList<NavKey>
+    public val backStack: NavBackStack<NavKey>
         get() = coordinator.backStack
 
     /**
@@ -301,7 +308,7 @@ public class LaydrNavStack internal constructor(
 
 internal class LaydrNavStackCoordinator internal constructor(
     val appGraph: LaydrAppGraph,
-    val backStack: SnapshotStateList<NavKey>,
+    val backStack: NavBackStack<NavKey>,
     val sceneSupport: LaydrNavSceneSupport = LaydrNavSceneSupport.None,
 ) {
     internal val engine = LaydrNavStackEngine(

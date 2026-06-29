@@ -1,6 +1,6 @@
 package dev.goquick.laydr.nav3.androidx
 
-import androidx.compose.runtime.mutableStateListOf
+import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import dev.goquick.laydr.core.LaydrAppGraph
 import dev.goquick.laydr.core.LaydrRoute
@@ -9,6 +9,7 @@ import dev.goquick.laydr.core.LaydrRouteMap
 import dev.goquick.laydr.core.LaydrRouteSegment
 import dev.goquick.laydr.core.LaydrScreenDestination
 import dev.goquick.laydr.core.LaydrScreenRouteRef
+import kotlinx.serialization.json.Json
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -46,11 +47,29 @@ class LaydrNavAndroidxAdapterTest {
     }
 
     @Test
+    fun keySerializationRestoresOnlyRouteIdentity() {
+        val key = LaydrNavKey(
+            routeId = "Contacts.ById",
+            parameters = mapOf("id" to "alpha"),
+            entryToken = "token",
+            entryMetadata = LaydrNavEntryMetadata("transition" to "modal"),
+        )
+
+        val encoded = Json.encodeToString(LaydrNavKeySerializer, key)
+        val restored = Json.decodeFromString(LaydrNavKeySerializer, encoded)
+
+        assertEquals("""{"routeId":"Contacts.ById","parameters":{"id":"alpha"}}""", encoded)
+        assertEquals(LaydrNavKey(routeId = "Contacts.ById", parameters = mapOf("id" to "alpha")), restored)
+        assertNull(restored.entryToken)
+        assertEquals(emptyMap(), restored.entryMetadata.values)
+    }
+
+    @Test
     fun stackDelegatesMutationsToSharedRuntime() {
         val graph = testGraph()
         val coordinator = LaydrNavStackCoordinator(
             appGraph = graph.appGraph,
-            backStack = mutableStateListOf<NavKey>(graph.contacts.key().navKey()),
+            backStack = NavBackStack<NavKey>(graph.contacts.key().navKey()),
         )
         val stack = LaydrNavStack(
             coordinator = coordinator,
@@ -87,7 +106,7 @@ class LaydrNavAndroidxAdapterTest {
         val stack = LaydrNavStack(
             coordinator = LaydrNavStackCoordinator(
                 appGraph = graph.appGraph,
-                backStack = mutableStateListOf<NavKey>(ForeignKey),
+                backStack = NavBackStack<NavKey>(ForeignKey),
             ),
             entryProvider = { key -> androidx.navigation3.runtime.NavEntry(key = key) {} },
         )
@@ -118,7 +137,7 @@ class LaydrNavAndroidxAdapterTest {
         val stack = LaydrNavStack(
             coordinator = LaydrNavStackCoordinator(
                 appGraph = graph.appGraph,
-                backStack = mutableStateListOf<NavKey>(graph.contacts.key().navKey()),
+                backStack = NavBackStack<NavKey>(graph.contacts.key().navKey()),
             ),
             entryProvider = { key -> androidx.navigation3.runtime.NavEntry(key = key) {} },
         )
@@ -191,7 +210,7 @@ class LaydrNavAndroidxAdapterTest {
         val controllers = sections.items.associateWith { section ->
             LaydrNavStackCoordinator(
                 appGraph = graph.appGraph,
-                backStack = mutableStateListOf<NavKey>(section.rootDestination.navKey()),
+                backStack = NavBackStack<NavKey>(section.rootDestination.navKey()),
             )
         }
         val coordinator = LaydrNavSectionsCoordinator(

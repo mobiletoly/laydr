@@ -142,6 +142,11 @@ val rootStack = LaydrNavRoutes.rememberStack(
 )
 ```
 
+The app-owned stack type comes from the enabled adapter. AndroidX helpers
+expect AndroidX `NavBackStack<NavKey>`. KMP helpers expect the KMP Nav3
+`NavBackStack<NavKey>`. Do not use `SnapshotStateList<NavKey>` for AndroidX
+generated stack helpers.
+
 Layout-only routes do not generate `destination()`. Dynamic section roots pass
 an explicit root destination:
 

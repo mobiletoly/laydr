@@ -24,11 +24,16 @@ placement.
 `laydr-nav3-androidx` owns the AndroidX boundary:
 
 - `LaydrNavKey` implements AndroidX `NavKey`
-- AndroidX stacks are `SnapshotStateList<NavKey>`
+- AndroidX stacks are `NavBackStack<NavKey>`
 - entry providers return AndroidX `NavEntry<NavKey>`
 - apps render AndroidX `NavDisplay`
 - Android Lifecycle, ViewModel decorators, app themes, DI, auth, retained
   state, intent deep links, and chrome remain app-owned
+
+Default AndroidX section and stack helpers create `NavBackStack` state with
+AndroidX saved-stack behavior. That restores Laydr destination identity across
+configuration changes and Android process death. Payloads, result callbacks,
+entry tokens, and entry metadata remain transient.
 
 The AndroidX adapter must not depend on JetBrains Navigation3 KMP. The KMP
 adapter must not depend on AndroidX Navigation 3.

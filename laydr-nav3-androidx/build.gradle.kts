@@ -13,4 +13,5 @@ dependencies {
     implementation(libs.compose.runtime)
     implementation(libs.compose.runtime.saveable)
     implementation(libs.kotlinx.serialization.core)
+    testImplementation(libs.kotlinx.serialization.json)
 }

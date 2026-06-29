@@ -3,7 +3,7 @@
 
 package dev.goquick.laydr.nav3.androidx
 
-import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.NavKey
 
@@ -45,7 +45,7 @@ public class LaydrNavSections<Data : Any> internal constructor(
     /**
      * Back stack for the currently selected section.
      */
-    public val selectedBackStack: SnapshotStateList<NavKey>
+    public val selectedBackStack: NavBackStack<NavKey>
         get() = coordinator.selectedBackStack
 
     /**

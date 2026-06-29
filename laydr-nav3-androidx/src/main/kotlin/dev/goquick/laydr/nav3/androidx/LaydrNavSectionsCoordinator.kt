@@ -5,11 +5,13 @@ package dev.goquick.laydr.nav3.androidx
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import dev.goquick.laydr.core.LaydrParameterlessScreenRouteRef
 import dev.goquick.laydr.core.LaydrScreenDestination
@@ -49,11 +51,13 @@ internal fun <Data : Any> rememberLaydrNavSectionsCoordinator(
 
     sectionControllers.keys.retainAll(sections.items.toSet())
     for (section in sections.items) {
-        sectionControllers[section] = rememberLaydrNavStackCoordinator(
-            appGraph = sections.appGraph,
-            initialDestination = section.rootDestination,
-            sceneSupport = sceneSupport,
-        )
+        key(section.stateId) {
+            sectionControllers[section] = rememberLaydrNavStackCoordinator(
+                appGraph = sections.appGraph,
+                initialDestination = section.rootDestination,
+                sceneSupport = sceneSupport,
+            )
+        }
     }
     return remember(sections, initialSection, selectedSectionState, sceneSupport, returnHistory) {
         LaydrNavSectionsCoordinator(
@@ -111,7 +115,7 @@ internal class LaydrNavSectionsCoordinator<Data : Any> internal constructor(
     internal val selectedController: LaydrNavStackCoordinator
         get() = controllerFor(selectedSection)
 
-    val selectedBackStack: SnapshotStateList<NavKey>
+    val selectedBackStack: NavBackStack<NavKey>
         get() = selectedController.backStack
 
     val currentPath: String?
