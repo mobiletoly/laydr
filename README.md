@@ -1,5 +1,13 @@
 # Laydr
 
+[![Kotlin Multiplatform](https://img.shields.io/badge/Kotlin-Multiplatform-blue?logo=kotlin)](https://kotlinlang.org/docs/multiplatform.html)
+[![Maven Central](https://img.shields.io/maven-central/v/dev.goquick.laydr/dev.goquick.laydr.gradle.plugin?logo=apache-maven&label=Maven%20Central)](https://central.sonatype.com/artifact/dev.goquick.laydr/dev.goquick.laydr.gradle.plugin)
+[![Release](https://img.shields.io/github/actions/workflow/status/mobiletoly/laydr/publish.yml?logo=github&label=Release)](https://github.com/mobiletoly/laydr/actions/workflows/publish.yml)
+[![License](https://img.shields.io/github/license/mobiletoly/laydr?logo=apache&label=License)](LICENSE)
+
+**If Laydr saves you time, please consider starring the repository - it helps
+more Compose Multiplatform and Android Compose developers find it.**
+
 Laydr is file-based, type-safe navigation for Compose Multiplatform and
 Android Compose apps. Model your app as a visible `routes/` directory, and
 Laydr generates the Kotlin destinations, path builders, route maps,
@@ -11,6 +19,21 @@ duplicated graph setup, repeated argument parsing, layout wrappers, tab
 registries, and stale navigation glue. Your routes become inspectable folders;
 Laydr generates the deterministic wiring; your app keeps Compose UI, state,
 data, dependency access, navigation chrome, and platform policy explicit.
+
+## Supported Platforms
+
+Laydr `0.1.0` supports these app targets:
+
+| App target                           | Notes                                                                                            |
+|--------------------------------------|--------------------------------------------------------------------------------------------------|
+| Compose Multiplatform on Android     | Routes live in the shared KMP module; the Android launcher and platform policy stay app-owned.   |
+| Compose Multiplatform on desktop/JVM | Use app-owned path state or Nav3 KMP with generated destinations.                                |
+| Compose Multiplatform on iOS         | Published KMP artifacts include iOS device and simulator targets.                                |
+| Compose Multiplatform on web/WasmJS  | WasmJS browser support is covered by the KMP route model.                                        |
+| Android-only Compose                 | Use `src/main/kotlin/routes` and Google AndroidX Navigation 3 without a shared KMP route module. |
+
+The Gradle plugin and route generator run on JVM 17/Gradle. AndroidX adaptive
+scene support is not part of the current AndroidX adapter.
 
 ## What Laydr Gives You
 
