@@ -9,7 +9,7 @@ Published coordinates are controlled by `gradle.properties`:
 
 ```properties
 laydr.group=dev.goquick.laydr
-laydr.version=0.2.0-SNAPSHOT
+laydr.version=0.2.0
 ```
 
 The root build applies these values to product subprojects. The

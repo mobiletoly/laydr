@@ -91,7 +91,7 @@ dependencyResolutionManagement {
 }
 ```
 
-Use `0.2.0-SNAPSHOT` as `LAYDR_VERSION` for the default local publish. If the
+Use `0.2.0` as `LAYDR_VERSION` for the default local publish. If the
 checkout was published with `-Playdr.version=...`, use that exact version
 instead.
 
