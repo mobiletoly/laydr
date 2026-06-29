@@ -1,9 +1,11 @@
 # Laydr User Documentation
 
-This documentation is for developers building apps with Laydr.
+Use these docs when you want a Compose app's navigation model to be visible in
+source control instead of scattered across string constants, registration
+blocks, and runtime glue.
 
-Laydr turns a Compose app's route tree into visible filesystem structure and
-generates typed Kotlin wiring from that structure.
+Laydr turns a Compose app's route tree into filesystem structure and generates
+typed Kotlin wiring from that structure.
 
 The practical change is small but important:
 
@@ -19,7 +21,9 @@ src/commonMain/kotlin/routes/
 
 Each route directory owns a tiny `Route.kt` declaration. Laydr validates that
 tree and generates typed destinations, path builders, route maps, and Compose
-entry wiring. Your app still owns Compose UI, navigation chrome, state,
+entry wiring. The useful shift is that a developer can open `routes/`, see the
+app's addressable places, and navigate with generated values instead of
+hand-built strings. Your app still owns Compose UI, navigation chrome, state,
 dependencies, data loading, platform behavior, and product policy.
 
 ## Start Here

@@ -7,6 +7,10 @@ context and child content. Your app decides how repositories, services, state
 holders, DI, ViewModels, shell callbacks, and platform dependencies reach
 those composables.
 
+The useful pattern is to treat a route entrypoint as a small adapter: generated
+route value in, narrow app dependencies in, ordinary screen UI out. That keeps
+routes local without turning Laydr into a service locator.
+
 ## Start With Explicit Screen Parameters
 
 Keep the route-owned screen easy to preview and test. The route declaration can

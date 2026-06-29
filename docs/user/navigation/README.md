@@ -6,6 +6,10 @@ Laydr does not replace Navigation3. It gives your app generated route values,
 validated entries, route-local Compose content, and helper APIs around the
 navigation runtime you choose.
 
+The useful shift is that you can choose navigation behavior after the route
+tree is clear. Plain Compose hosting, KMP Nav3, and AndroidX Nav3 all start
+from the same route-local declarations.
+
 Your app still owns the shell: `NavDisplay`, tabs, labels, icons, Back
 affordances, adaptive breakpoints, transitions, retained state, platform deep
 links, analytics, auth, and any product-specific navigation policy.

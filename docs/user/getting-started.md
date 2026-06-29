@@ -3,6 +3,11 @@
 This tutorial builds one tiny Compose Multiplatform route tree and renders it
 with `LaydrRouteHost`.
 
+The useful shift is that the route tree becomes the app map. You add a
+directory and a tiny `Route.kt`; Laydr validates it and gives the app typed
+destinations, path builders, and route content wiring. You still write the UI,
+state, dependencies, and navigation policy.
+
 Start here for Compose Multiplatform apps, even if the app will later use
 Nav3 KMP. Android-only apps should start with
 [AndroidX Nav3](nav3-androidx.md); the route concepts are the same, but

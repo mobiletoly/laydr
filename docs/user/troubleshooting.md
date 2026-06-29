@@ -15,6 +15,12 @@ For Android-only modules:
 Use `generateLaydrRoutes` when you need generated source to compile or
 inspect. Do not repair generated files by hand.
 
+Troubleshooting is faster when you first identify the owner of the failure.
+Scanner errors usually mean authored route-tree problems. Kotlin compile
+errors usually mean stale generated source, missing runtime dependencies, or
+source-set wiring. Runtime navigation errors usually mean app shell policy or
+Nav3 state.
+
 ## Start Here
 
 Use this first pass before reading the whole page:
@@ -182,24 +188,36 @@ dependencies.
 Fix: add the runtime modules your app uses:
 
 ```kotlin
-commonMain.dependencies {
-    implementation(libs.laydr.compose)
+kotlin {
+    sourceSets {
+        commonMain.dependencies {
+            implementation(libs.laydr.compose)
+        }
+    }
 }
 ```
 
 Add Nav3 KMP only when the KMP module uses Nav3 KMP:
 
 ```kotlin
-commonMain.dependencies {
-    implementation(libs.laydr.nav3.kmp)
+kotlin {
+    sourceSets {
+        commonMain.dependencies {
+            implementation(libs.laydr.nav3.kmp)
+        }
+    }
 }
 ```
 
 Add workflow only when a route hosts route-local workflow state:
 
 ```kotlin
-commonMain.dependencies {
-    implementation(libs.laydr.workflow)
+kotlin {
+    sourceSets {
+        commonMain.dependencies {
+            implementation(libs.laydr.workflow)
+        }
+    }
 }
 ```
 
@@ -402,8 +420,12 @@ Fix: add `laydr-workflow`, host the workflow from a route-owned screen
 composable, collect outputs there, and map outputs to app behavior.
 
 ```kotlin
-commonMain.dependencies {
-    implementation(libs.laydr.workflow)
+kotlin {
+    sourceSets {
+        commonMain.dependencies {
+            implementation(libs.laydr.workflow)
+        }
+    }
 }
 ```
 

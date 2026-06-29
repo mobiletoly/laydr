@@ -6,6 +6,10 @@ AndroidX Navigation 3 with generated Laydr route contracts.
 Use the KMP navigation pages when the app has a shared Compose Multiplatform
 module.
 
+The useful difference is only the runtime boundary. AndroidX apps keep route
+files in the Android source set and render with AndroidX Navigation 3, while
+still navigating through generated Laydr destinations.
+
 ## Setup
 
 Android-only Laydr projects use:

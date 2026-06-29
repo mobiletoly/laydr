@@ -5,6 +5,10 @@ Laydr does not own persistent screen state.
 Nav3 owns entries and display. Your app owns saved state, ViewModels, retained
 state holders, and lifecycle policy.
 
+The rule of thumb is: generated route parameters identify the screen, Nav3
+decorators retain entry state, and app-owned state holders do the long-lived
+work.
+
 ## Saved State And ViewModels
 
 Nav3 apps still construct `NavDisplay`, so install Navigation3 entry

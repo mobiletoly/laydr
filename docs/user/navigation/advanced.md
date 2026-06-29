@@ -3,6 +3,10 @@
 Read this after the common navigation pages. These features are useful, but
 they should not be part of a first Laydr Nav3 shell.
 
+The common thread is explicit ownership: Laydr can carry structured metadata,
+adaptive scene hooks, and external-target results, but the app interprets
+those values and decides product behavior.
+
 ## Entry Metadata
 
 Entry metadata lets the app attach data to resolved Nav3 entries while keeping

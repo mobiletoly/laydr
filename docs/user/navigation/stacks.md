@@ -6,6 +6,10 @@ fullscreen routes outside a sectioned shell.
 Sections are best for top-level app areas. Stacks are best for one linear flow
 or for parent shells that combine app-owned entries with Laydr entries.
 
+The AHA moment for mixed stacks is that Laydr can manage only the Laydr suffix
+of a parent stack. Sign-in markers, shell entries, and platform surfaces can
+remain app-owned keys.
+
 ## Single Laydr Stack
 
 Use a single stack when the app does not need tabs or rails:

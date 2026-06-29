@@ -6,6 +6,10 @@ AndroidX Navigation 3 with generated Laydr route contracts.
 Use [Nav3 KMP](nav3-kmp.md) instead when the route tree belongs to a shared
 Compose Multiplatform module.
 
+The payoff is the same generated route model as KMP, but wired for an
+Android-only module: `src/main/kotlin/routes`, AndroidX `NavDisplay`, and no
+shared route source set.
+
 ## Setup
 
 Android-only Laydr projects put routes here:

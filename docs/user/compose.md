@@ -6,6 +6,10 @@ ordinary Compose content.
 `LaydrRouteHost` is the simplest runtime: the app passes a path string in and
 Laydr renders route content out.
 
+That gives small apps a useful middle ground: route matching, inherited
+layouts, and typed route content come from Laydr, while the app keeps direct
+control over current path state and the surrounding UI.
+
 ## Enable Compose Generation
 
 In the module that owns routes:
@@ -19,8 +23,12 @@ laydr {
 Add the runtime dependency:
 
 ```kotlin
-commonMain.dependencies {
-    implementation(libs.laydr.compose)
+kotlin {
+    sourceSets {
+        commonMain.dependencies {
+            implementation(libs.laydr.compose)
+        }
+    }
 }
 ```
 

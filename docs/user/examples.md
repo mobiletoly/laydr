@@ -1,18 +1,19 @@
 # Examples
 
-Laydr examples are consumer-style apps under `examples/`.
+Laydr examples are consumer-style apps under `examples/`. Use them as
+executable proofs for a capability, not just as code snippets.
 
 Read [Getting Started](getting-started.md) first, then use the example that
 matches the app shape you are building.
 
 ## Choose An Example
 
-| Need | Example |
-| --- | --- |
-| Small path-state Compose app | `examples/compose-basic/` |
-| KMP Nav3 sections and `NavDisplay` | `examples/nav3-kmp/` |
-| Larger KMP app with shopping flows | `examples/nav3-kmp-shopping/` |
-| Android-only AndroidX Navigation 3 app | `examples/nav3-androidx/` |
+| Need | Example | What it proves |
+| --- | --- | --- |
+| Small path-state Compose app | `examples/compose-basic/` | `LaydrRouteHost` can render generated routes without Nav3 |
+| KMP Nav3 sections and `NavDisplay` | `examples/nav3-kmp/` | generated destinations can drive a visible app-owned Nav3 shell |
+| Larger KMP app with shopping flows | `examples/nav3-kmp-shopping/` | sections, results, fullscreen routes, adaptive scenes, and workflow fit together |
+| Android-only AndroidX Navigation 3 app | `examples/nav3-androidx/` | Android-only modules can use the same route model without a shared KMP route module |
 
 ## Compose Basic
 

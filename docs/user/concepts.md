@@ -2,6 +2,11 @@
 
 Laydr turns a visible filesystem route tree into typed Kotlin route APIs.
 
+The main benefit is that route ownership becomes reviewable project structure:
+the directory tells you where the user can go, `Route.kt` tells you how that
+place enters Compose, and generated APIs remove stringly typed navigation
+glue.
+
 The short version:
 
 1. You create route directories.

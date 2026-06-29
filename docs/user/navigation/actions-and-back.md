@@ -6,6 +6,9 @@ handle Back.
 Laydr navigation actions work with generated destinations. Back behavior is
 still app policy exposed through the shell.
 
+The useful rule is: route code asks to move to generated destinations; shell
+code decides how that movement appears to the user, including Back.
+
 ## Basic Actions
 
 Use generated destinations:

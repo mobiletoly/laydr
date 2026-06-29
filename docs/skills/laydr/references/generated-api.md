@@ -1,95 +1,95 @@
 # Generated API
 
-Use this reference before naming generated Laydr APIs in downstream app code.
+Use this before naming generated Laydr APIs in app code.
 
-Generated files live under:
+## Contents
+
+- generated source locations
+- task map
+- routes, paths, and destinations
+- Compose definitions
+- generated Nav3 helpers
+- graph and map
+
+Generated source lives under:
 
 ```text
-build/generated/laydr/commonMain/kotlin/
-build/generated/laydr/main/kotlin/
+build/generated/laydr/commonMain/kotlin/  # KMP
+build/generated/laydr/main/kotlin/        # Android-only
 ```
 
-Do not edit generated files. Change route source and rerun route validation or
+Never edit generated files. Change `routes/` source and rerun validation or
 generation.
 
-KMP modules use `commonMain`; Android-only modules use `main`.
+## Task Map
 
-## Root Object
+| Need | Use |
+| --- | --- |
+| Navigate inside the app | `LaydrRoutes.*.destination(...)` |
+| Store or compare a path string | `LaydrRoutes.*.path(...)` |
+| Render current path with Compose | `LaydrComposeRoutes.definitions` |
+| Declare route-local content | route-local `LaydrRouteDef` |
+| Build Nav3 sections or stacks | generated `LaydrNavRoutes` helpers |
+| Diagnose adapter behavior | `LaydrRoutes.appGraph` or `routeMap` |
 
-`LaydrRoutes` lives in the configured generated package:
+## Routes, Paths, And Destinations
+
+Import app-level generated APIs from the configured generated package:
 
 ```kotlin
+import example.app.generated.LaydrComposeRoutes
+import example.app.generated.LaydrNavRoutes
 import example.app.generated.LaydrRoutes
 ```
 
-Nested objects mirror the route tree:
+Nested route objects mirror directories:
 
-```kotlin
-LaydrRoutes.Contacts
-LaydrRoutes.Contacts.ById
+```text
+routes/contacts/by_id -> LaydrRoutes.Contacts.ById
 ```
 
-## Paths And Destinations
-
-Use `path(...)` when the app intentionally stores path strings:
+Prefer destinations for in-app navigation:
 
 ```kotlin
-LaydrRoutes.Contacts.path()
-LaydrRoutes.Contacts.ById.path(
-    id = LaydrRoutes.Contacts.ById.id("ada"),
-)
-```
-
-Use `destination(...)` for in-app navigation and adapters:
-
-```kotlin
-LaydrRoutes.Contacts.destination()
 LaydrRoutes.Contacts.ById.destination(
     id = LaydrRoutes.Contacts.ById.id("ada"),
 )
 ```
 
-Dynamic directory names become lower camel Kotlin arguments:
-
-```text
-routes/users/by_user_id -> destination(
-    userId = LaydrRoutes.Users.ByUserId.userId("ada"),
-)
-```
-
-Prefer factory calls over depending on generated destination class names.
-
-## Graph And Map
-
-Use `LaydrRoutes.appGraph` for adapters:
+Use paths only when the app deliberately stores or handles path strings:
 
 ```kotlin
-rememberLaydrNavSections(
-    LaydrRoutes.appGraph,
-    laydrNavSection(LaydrRoutes.Contacts, TabSpec("Contacts")),
+LaydrRoutes.Contacts.ById.path(
+    id = LaydrRoutes.Contacts.ById.id("ada"),
 )
 ```
 
-Use `LaydrRoutes.routeMap` only for lower-level route matching, diagnostics,
-strict app entry points, or adapter code.
+Dynamic values are wrapped by route-scoped factories. Use `.value` only when
+passing back into app-owned APIs that expect plain strings.
 
-## Compose Generated APIs
+## Compose Definitions
 
 When `compose.set(true)` is enabled:
 
 - `LaydrComposeRoutes.definitions` is generated in the generated package.
-- route packages receive `LaydrRouteDef`.
+- each declared route package receives `LaydrRouteDef`.
 - generated definitions are app-context-free.
-- `LaydrRouteDef.screen` accepts content-only composables returning `Unit`.
-- `LaydrRouteDef.screenWithLayoutValues` is for screens returning
-  `LaydrScreenContent` with layout values.
 
-Use the generated definitions for both `LaydrRouteHost` and Nav3 entry
-providers.
+Use definitions with `LaydrRouteHost`:
 
-## Nav3 Generated Helpers
+```kotlin
+LaydrRouteHost(
+    currentPath = currentPath,
+    routeDefinitions = LaydrComposeRoutes.definitions,
+    notFoundContent = { path -> NotFound(path) },
+)
+```
 
-Apps can opt into generated helpers for one Nav3 adapter:
+Nav3 entry providers use the same definitions internally.
+
+## Generated Nav3 Helpers
+
+Enable exactly one Nav3 helper target:
 
 ```kotlin
 laydr {
@@ -100,11 +100,7 @@ laydr {
 }
 ```
 
-This generates `LaydrNavRoutes` in the generated package. It is internal and
-wraps existing adapter primitives; it does not add dependencies or app-owned
-chrome.
-
-For Android-only AndroidX Navigation 3 apps:
+or:
 
 ```kotlin
 laydr {
@@ -115,12 +111,11 @@ laydr {
 }
 ```
 
-Do not enable `nav3Kmp` and `nav3Androidx` for the same route tree.
-
-Use it in app shells:
+This generates an app-module `LaydrNavRoutes` object. Use it for repeated
+section and stack setup:
 
 ```kotlin
-val wiring = LaydrNavRoutes.rememberSections(
+val sections = LaydrNavRoutes.rememberSections(
     sectionSpecs = listOf(
         LaydrNavRoutes.Contacts.section(TabSpec("Contacts")),
         LaydrNavRoutes.Profile.section(TabSpec("Profile")),
@@ -129,7 +124,7 @@ val wiring = LaydrNavRoutes.rememberSections(
 )
 ```
 
-Use `rememberStack` for one-stack apps:
+Single-stack apps use:
 
 ```kotlin
 val stack = LaydrNavRoutes.rememberStack(
@@ -138,8 +133,7 @@ val stack = LaydrNavRoutes.rememberStack(
 )
 ```
 
-`rememberStack` returns `LaydrNavStack`. It also has a `backStack = ...`
-overload for app-owned or mixed parent stacks:
+Mixed parent stacks use the `backStack = ...` overload:
 
 ```kotlin
 val rootStack = LaydrNavRoutes.rememberStack(
@@ -148,37 +142,34 @@ val rootStack = LaydrNavRoutes.rememberStack(
 )
 ```
 
-The generated API does not declare route-specific payload or result types, and
-it does not generate route-specific payload or result helpers.
-
-The initial destination must be a generated screen destination. Layout-only
-routes do not generate `destination()`.
-
-Dynamic section roots use explicit root destinations:
+Layout-only routes do not generate `destination()`. Dynamic section roots pass
+an explicit root destination:
 
 ```kotlin
 LaydrNavRoutes.Workspaces.ById.section(
     rootDestination = LaydrRoutes.Workspaces.ById.destination(
         id = LaydrRoutes.Workspaces.ById.id("alpha"),
     ),
-    sectionData = TabSpec("Workspace"),
+    sectionData = TabSpec("Alpha"),
 )
 ```
 
-Route-local screens still pass generated destinations to runtime navigator
-APIs:
+`LaydrNavRoutes` does not generate route-specific navigator extensions,
+payload types, or result types. Keep app-specific navigation intent in app
+code.
+
+## Graph And Map
+
+Use `LaydrRoutes.appGraph` for adapter validation and advanced shell code.
+Use `LaydrRoutes.routeMap` for lower-level path matching, diagnostics, strict
+entry-point handling, or adapter work.
+
+Generated route objects expose typed checks:
 
 ```kotlin
-navigator.push(
-    LaydrRoutes.Contacts.ById.destination(
-        id = LaydrRoutes.Contacts.ById.id("ada"),
-    ),
-)
-navigator.pushWithReturn(LaydrRoutes.Profile.destination())
-navigator.replace(LaydrRoutes.Contacts.destination())
-navigator.select(LaydrRoutes.Contacts)
+LaydrRoutes.Profile.matches(key)
+LaydrRoutes.Contacts.contains(key)
 ```
 
-`LaydrNavRoutes` does not generate route-specific navigator extensions.
-Generated route objects expose `matches(key)` and `contains(key)` for typed
-route classification without raw route-id comparisons.
+Use generated destinations for ordinary buttons and menu actions instead of
+raw route ids or hand-built path strings.

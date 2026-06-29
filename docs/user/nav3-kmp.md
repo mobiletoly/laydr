@@ -10,6 +10,9 @@ and structured external-target results. Your app still owns `NavDisplay`,
 tabs, labels, icons, adaptive breakpoints, transitions, retained state, deep
 links, auth, analytics, and product policy.
 
+The AHA moment is that Nav3 stays visible, but the repetitive route-to-entry
+plumbing comes from the same `routes/` tree that plain Compose hosting uses.
+
 ## Setup
 
 Add the runtime dependency in the shared KMP module that owns

@@ -1,10 +1,17 @@
 # Route Dependencies
 
-Use this reference when editing a Laydr app route that needs repositories,
-use cases, DI, workflow dependencies, shell navigation, or previewable
-entrypoints.
+Use this when route content needs repositories, use cases, DI, workflow
+dependencies, shell navigation, payloads/results, or previewable entrypoints.
 
-## Default Pattern
+## Contents
+
+- default route entry shape
+- dependency rules
+- shell capabilities
+- payloads and results
+- workflow dependencies
+
+## Default Shape
 
 Keep `Route.kt` as route wiring:
 
@@ -14,48 +21,72 @@ internal val Route = LaydrRouteDef.screen { route ->
 }
 ```
 
-Acquire dependencies in the route entry composable:
+Make the route entry composable a small adapter from generated route value to
+app-owned UI:
 
 ```kotlin
 @Composable
 internal fun Screen(
     route: LaydrRoutes.Profile.Destination,
     profileApi: ProfileApi = koinInject(),
-    shellNavigation: ProfileShellNavigation = LocalProfileShellNavigation.current,
+    navigation: ProfileNavigation = LocalProfileNavigation.current,
 ) {
     ProfileScreen(
-        profileApi = profileApi,
-        onOpenSignIn = { shellNavigation.openSignIn(source = route.path) },
+        profile = profileApi.loadProfile(),
+        onOpenSignIn = { navigation.openSignIn(source = route.path) },
     )
 }
 ```
 
-Use explicit arguments in previews and tests.
+For previews and tests, pass fake dependencies directly.
 
-## Checklist
+## Dependency Rules
 
 - Keep generated route rendering app-context-free.
-- Keep dependencies app-owned.
-- Prefer local default parameters for ordinary route dependencies.
+- Prefer explicit parameters and narrow defaulted providers.
 - Use `content = ::Screen` only when `Screen` has exactly the generated route
   parameter shape.
-- Use `{ route -> Screen(route) }` when `Screen` has extra defaulted
-  parameters.
+- Use `{ route -> Screen(route = route) }` when `Screen` has defaulted
+  dependencies or extra parameters.
 - Keep feature facades narrow and feature-owned.
-- Keep shell navigation capabilities narrow and separate from feature
-  repositories or services.
-- Use `CompositionLocal` for app shell capabilities or explicit subtree
-  lifetimes, not as a root registry for every feature.
-- Do not create root app contexts such as `MainLaydrContext`.
+- Use `CompositionLocal` for app shell capabilities or real subtree lifetimes,
+  not as a root registry for every feature.
+- Do not create root containers such as `MainLaydrContext`.
 - Do not add umbrella providers such as `ProvideAllRouteEnvironments` around
   `NavDisplay`.
 - Do not make Laydr own DI, repositories, auth, persistence, labels, icons,
-  ViewModels, reducers, or shell chrome.
+  ViewModels, reducers, shell chrome, or platform policy.
 
-## Route Payloads
+## Shell Capabilities
 
-Use Nav3 managed-stack payloads for transient launch data scoped to one entry,
-such as an initial form value, launch source, or one-entry request object:
+Expose only the action a route needs:
+
+```kotlin
+internal interface ProfileNavigation {
+    fun openSignIn(source: String)
+}
+```
+
+For KMP Nav3 parent or fullscreen stack launches, the shell may provide an
+approved `LaydrNavStackNavigator` around a subtree:
+
+```kotlin
+ProvideLaydrNavStackNavigator(rootStack.navigator) {
+    MainSectionShell()
+}
+```
+
+`ProvideLaydrNavStackNavigator`, `requireLaydrNavStackNavigator`, and
+`laydrNavStackNavigatorOrNull` are exported by `laydr-nav3-kmp`. AndroidX Nav3
+apps should pass an app-owned parent-stack capability explicitly through their
+own shell wiring instead of using those KMP-only locals.
+
+There is no implicit global root navigator in either adapter. Do not pass the
+full app stack to every route.
+
+## Payloads And Results
+
+Use payloads for transient launch-time data scoped to one entry:
 
 ```kotlin
 stack.navigator.push(
@@ -69,18 +100,10 @@ stack.navigator.push(
 Read payloads in route-local Compose code:
 
 ```kotlin
-@Composable
-internal fun Screen(route: LaydrRoutes.Auth.SignIn.Destination) {
-    val payload = laydrNavPayloadOrNull<SignInPayload>()
-    SignInScreen(initialEmail = payload?.initialEmail.orEmpty())
-}
+val payload = laydrNavPayloadOrNull<SignInPayload>()
 ```
 
-Do not use payloads for DI, retained state, auth policy, result handling,
-modal metadata, or process-restored state. Use route-local dependency lookup
-or narrow feature providers for long-lived services and shared feature state.
-
-Use Nav3 route results for one-shot answers from a launched entry:
+Use results when the caller needs one typed answer:
 
 ```kotlin
 stack.navigator.pushForResult<SignInResult>(
@@ -93,21 +116,11 @@ stack.navigator.pushForResult<SignInResult>(
 }
 ```
 
-Route results are transient callback transport. They are not DI, retained
-state, workflow outputs, an event bus, automatic pop behavior, modal policy,
-or post-result app policy.
+Payloads and results are transient. They are not route identity, DI, retained
+state, workflow outputs, modal policy, or event buses. Use generated route
+parameters when the value identifies the route.
 
-## Provider Escape Hatch
-
-A provider is acceptable when it owns a real feature lifetime, such as a
-tab-level cache, feature-scoped state holder, or platform integration that
-must wrap a specific subtree.
-
-If the provider would only exist because Laydr lacks a route entry wrapping
-hook or lifecycle affordance, stop and report framework friction instead of
-normalizing a broad provider cascade.
-
-## Workflow Routes
+## Workflow Dependencies
 
 Resolve workflow dependencies before creating the workflow:
 
@@ -119,14 +132,16 @@ internal fun Screen(
     navigation: CheckoutNavigation = LocalCheckoutNavigation.current,
 ) {
     val workflow = rememberLaydrWorkflow(key = route) { scope ->
-        CheckoutWorkflow(dependencies, route, scope)
+        CheckoutWorkflow(dependencies = dependencies, route = route, scope = scope)
     }
-    CollectLaydrWorkflowOutputs(workflow) { output ->
+
+    CollectLaydrWorkflowOutputs(workflow = workflow) { output ->
         navigation.handle(output)
     }
+
     LaydrWorkflowHost(workflow = workflow, renderer = checkoutRenderer)
 }
 ```
 
-Workflow nodes, renderer registration, output handling, and DI wiring remain
+Workflow nodes, renderers, output mapping, and dependency lookup remain
 app-owned.

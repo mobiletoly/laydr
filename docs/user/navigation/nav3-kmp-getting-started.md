@@ -5,6 +5,10 @@ Use this page for the first Nav3 KMP shell in a Compose Multiplatform app.
 The goal is not to hide Nav3. The goal is to remove repeated glue between your
 generated Laydr route tree and Nav3 entries.
 
+That means the app still constructs `NavDisplay`, but it gets entry providers,
+section ownership checks, and navigation destinations from generated Laydr
+APIs.
+
 ## What You Build
 
 A small sectioned app has four parts:
@@ -22,9 +26,13 @@ visual chrome, and product behavior.
 Add the runtime dependency in the KMP module that owns routes:
 
 ```kotlin
-commonMain.dependencies {
-    implementation(libs.laydr.compose)
-    implementation(libs.laydr.nav3.kmp)
+kotlin {
+    sourceSets {
+        commonMain.dependencies {
+            implementation(libs.laydr.compose)
+            implementation(libs.laydr.nav3.kmp)
+        }
+    }
 }
 ```
 

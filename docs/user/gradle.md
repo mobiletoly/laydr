@@ -3,6 +3,11 @@
 Use this page when wiring the Laydr plugin, runtime dependencies, adapter
 flags, generated source locations, or validation tasks.
 
+The key boundary: the Gradle plugin is build-time wiring. It scans `routes/`,
+validates the tree, and adds generated source directories. Runtime artifacts
+are explicit app dependencies, so the module only pays for the host or adapter
+it actually uses.
+
 ## Before You Copy
 
 The snippets assume your app already has Kotlin, Compose, Android, or KMP

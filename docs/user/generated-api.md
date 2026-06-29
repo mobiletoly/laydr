@@ -3,6 +3,10 @@
 Use this page when a route exists, but you are unsure which generated object
 to call.
 
+The payoff is simple: app code can navigate with generated destinations, render
+with generated definitions, and inspect generated graph data without guessing
+route ids or hand-building path strings.
+
 Generated files live under:
 
 ```text

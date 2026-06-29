@@ -7,6 +7,9 @@ Laydr remembers one stack per section and validates which section owns each
 generated destination. Your app still owns labels, icons, order, visibility,
 badges, and chrome.
 
+The useful shift is that section membership comes from generated route refs,
+while the visible tab, rail, or product section UI stays ordinary app code.
+
 ## When To Use Sections
 
 Use sections when:

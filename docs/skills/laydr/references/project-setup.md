@@ -1,70 +1,30 @@
 # Project Setup
 
-Use this reference when adding Laydr to a Kotlin Multiplatform app,
-Android-only Compose app, or checking an existing app setup.
+Use this when adding Laydr to an app or checking build wiring.
 
-## Local Artifact Or Source Consumption
+## Contents
 
-When the app should consume artifact-style local builds, ensure the consuming
-app has `mavenLocal()` in both plugin and dependency repositories:
+- decide the app shape
+- consume Laydr artifacts or source
+- configure KMP modules
+- configure Android-only modules
+- add route-local workflow
+- create the first route
 
-```kotlin
-pluginManagement {
-    repositories {
-        mavenLocal()
-        mavenCentral()
-        google()
-        gradlePluginPortal()
-    }
-}
+## Decide The App Shape
 
-dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-    repositories {
-        mavenLocal()
-        mavenCentral()
-        google()
-    }
-}
-```
+| App shape | Route root | Generated source | Runtime |
+| --- | --- | --- | --- |
+| KMP with plain Compose host | `src/commonMain/kotlin/routes` | `build/generated/laydr/commonMain/kotlin` | `laydr-compose` |
+| KMP with Nav3 sections/stacks | `src/commonMain/kotlin/routes` | `build/generated/laydr/commonMain/kotlin` | `laydr-nav3-kmp` |
+| Android-only with AndroidX Nav3 | `src/main/kotlin/routes` | `build/generated/laydr/main/kotlin` | `laydr-nav3-androidx` |
 
-Use this only when Laydr artifacts are already installed in Maven local.
-When actively editing Laydr and the app together, prefer composite build
-wiring:
+The Laydr Gradle plugin scans routes and wires generated source. It does not
+add runtime dependencies automatically.
 
-```kotlin
-pluginManagement {
-    includeBuild("../laydr")
-    repositories {
-        mavenCentral()
-        google()
-        gradlePluginPortal()
-    }
-}
+## Consume Laydr
 
-dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-    repositories {
-        mavenCentral()
-        google()
-    }
-}
-
-includeBuild("../laydr")
-```
-
-Use the Laydr root checkout in both places. Do not also include
-`../laydr/laydr-gradle-plugin`, because that can give Gradle and IDE import two
-build identities for the same source checkout.
-
-If the app already has wrapper conventions or version catalogs, follow the app
-pattern instead of forcing this exact snippet.
-
-## Version Catalog
-
-Use `LAYDR_VERSION` as a placeholder for the Laydr artifact version. Replace it
-with the version selected by the app or the local artifact set, and define it
-once:
+For published or locally published artifacts, define one version:
 
 ```toml
 [versions]
@@ -81,16 +41,73 @@ laydr-nav3-androidx = { module = "dev.goquick.laydr:laydr-nav3-androidx", versio
 laydr-workflow = { module = "dev.goquick.laydr:laydr-workflow", version.ref = "laydr" }
 ```
 
-## Gradle Module
+If artifacts are in Maven local, add `mavenLocal()` to both plugin and
+dependency repositories. Use this only when the artifacts were already
+published locally:
 
-Apply Laydr in the KMP or Android-only module that owns the route tree.
+```kotlin
+pluginManagement {
+    repositories {
+        mavenLocal()
+        gradlePluginPortal()
+        mavenCentral()
+        google()
+    }
+}
 
-KMP module:
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        mavenLocal()
+        mavenCentral()
+        google()
+    }
+}
+```
+
+When actively editing Laydr and the app together, prefer a composite build:
+
+```kotlin
+pluginManagement {
+    includeBuild("../laydr")
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+        google()
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        mavenCentral()
+        google()
+    }
+}
+
+includeBuild("../laydr")
+```
+
+Use the Laydr root checkout. Do not also include
+`../laydr/laydr-gradle-plugin`; that creates two Gradle identities for the
+same source checkout.
+
+## KMP Module
+
+Apply Laydr in the KMP module that owns `src/commonMain/kotlin/routes`:
 
 ```kotlin
 plugins {
-    kotlin("multiplatform")
+    alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.laydr)
+}
+
+kotlin {
+    sourceSets {
+        commonMain.dependencies {
+            implementation(libs.laydr.compose)
+        }
+    }
 }
 
 laydr {
@@ -99,13 +116,42 @@ laydr {
 }
 ```
 
-Android-only module:
+Add Nav3 KMP only when the shared module uses Nav3 sections or stacks:
+
+```kotlin
+kotlin {
+    sourceSets {
+        commonMain.dependencies {
+            implementation(libs.laydr.nav3.kmp)
+        }
+    }
+}
+
+laydr {
+    compose.set(true)
+    adapters {
+        nav3Kmp.set(true)
+    }
+}
+```
+
+Add `laydr-nav3-kmp-adaptive` only when using optional Material adaptive
+list/detail scenes.
+
+## Android-Only Module
+
+Apply Laydr in the Android module that owns `src/main/kotlin/routes`:
 
 ```kotlin
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.laydr)
+}
+
+dependencies {
+    implementation(libs.laydr.compose)
+    implementation(libs.laydr.nav3.androidx)
 }
 
 laydr {
@@ -117,50 +163,38 @@ laydr {
 }
 ```
 
-Default route roots:
+Do not enable `nav3Kmp` in the same route tree. AndroidX adaptive Laydr APIs
+are not current behavior.
 
-```text
-src/commonMain/kotlin/routes  # KMP
-src/main/kotlin/routes        # Android-only
-```
+## Route-Local Workflow
 
-Default generated package:
-
-```text
-dev.goquick.laydr.generated
-```
-
-## Dependencies
-
-The Gradle plugin does not add runtime dependencies automatically. Add the
-modules required by the app surface:
+Add workflow only to modules that host private route-local workflow state:
 
 ```kotlin
-commonMain.dependencies {
-    implementation(libs.laydr.compose)
-    implementation(libs.laydr.nav3.kmp)
+kotlin {
+    sourceSets {
+        commonMain.dependencies {
+            implementation(libs.laydr.workflow)
+        }
+    }
+}
+```
+
+Android-only modules use normal Android dependencies:
+
+```kotlin
+dependencies {
     implementation(libs.laydr.workflow)
 }
 ```
 
-Use `laydr-compose` for `LaydrRouteHost`, `laydr-nav3-kmp` for
-JetBrains Navigation3 KMP integration, and `laydr-workflow` when route-local
-workflows are hosted.
-Add `laydr-nav3-kmp-adaptive` only when the app uses optional Material
-adaptive list/detail scenes.
-Use `laydr-nav3-androidx` for Android-only apps using Google AndroidX
-Navigation 3. AndroidX adaptive scene support is not implemented.
-
-If plugin resolution uses a composite build or app convention that supplies
-the plugin version, follow that app pattern instead of forcing the literal
-version into the module.
-
 ## First Route Checklist
 
-- Add one route directory with `Route.kt`.
-- Bind screen UI through generated `LaydrRouteDef`.
-- Run `checkLaydrRoutes`.
-- Compile the affected source set.
+1. Create one route directory under the route root.
+2. Add `Route.kt` with one `LaydrRouteDef` declaration.
+3. Put screen UI in nearby app-owned files such as `Screen.kt`.
+4. Run `checkLaydrRoutes`.
+5. Compile the affected source set.
 
-Use `generated-api.md` before naming generated route objects and
+Read `routes.md` before creating a larger route tree and
 `troubleshooting.md` when validation fails.

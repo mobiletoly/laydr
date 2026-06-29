@@ -4,6 +4,10 @@ Use this page when authoring or fixing the filesystem route tree. Read
 [Getting Started](getting-started.md) first if you want the same rules in a
 complete app.
 
+The useful shift is that route review happens in directories, not in hidden
+registration code. A path segment is a directory, a declared route has
+`Route.kt`, and generated APIs mirror that shape.
+
 ## Where Routes Live
 
 KMP route root:

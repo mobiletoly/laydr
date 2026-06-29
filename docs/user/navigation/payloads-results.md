@@ -5,6 +5,10 @@ Use payloads and results only for data that belongs to one Nav3 entry.
 They are transient. They are not route identity, dependencies, retained state,
 auth policy, modal policy, or an event bus.
 
+The useful decision is whether a value identifies the destination or only this
+launch. Identity belongs in generated route parameters. One-entry launch
+context or one-shot answers can be payloads and results.
+
 ## Payloads
 
 Use a payload for launch-time data that should not be part of the route path:

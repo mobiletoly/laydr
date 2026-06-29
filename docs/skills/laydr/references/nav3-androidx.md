@@ -1,7 +1,7 @@
 # AndroidX Nav3
 
-Use this reference for Android-only Compose apps using Google AndroidX
-Navigation 3 with Laydr.
+Use this for Android-only Compose apps using Google AndroidX Navigation 3 with
+Laydr. Use `nav3-kmp.md` when routes live in a shared KMP module.
 
 ## Setup
 
@@ -37,29 +37,11 @@ Do not enable `nav3Kmp` for the same route tree.
 
 ## Golden Path
 
-Prefer generated destinations:
+Use generated `LaydrNavRoutes` helpers:
 
 ```kotlin
-sections.navigator.push(
-    LaydrRoutes.Contacts.ById.destination(
-        id = LaydrRoutes.Contacts.ById.id("ada"),
-    ),
-)
-```
+private data class TabSpec(val label: String)
 
-The app renders AndroidX `NavDisplay`:
-
-```kotlin
-NavDisplay(
-    backStack = sections.selectedBackStack,
-    onBack = { sections.back() },
-    entryProvider = sections.entryProvider,
-)
-```
-
-Use generated helpers for repeated section wiring:
-
-```kotlin
 val sections = LaydrNavRoutes.rememberSections(
     sectionSpecs = listOf(
         LaydrNavRoutes.Contacts.section(TabSpec("Contacts")),
@@ -69,22 +51,41 @@ val sections = LaydrNavRoutes.rememberSections(
 )
 ```
 
-Use `LaydrNavRoutes.rememberStack(initialDestination = ...)` for one-stack
-apps, or `LaydrNavRoutes.rememberStack(backStack = ...)` for an app-owned
-`SnapshotStateList<NavKey>` parent stack.
+Render AndroidX `NavDisplay` yourself:
+
+```kotlin
+NavDisplay(
+    backStack = sections.selectedBackStack,
+    onBack = { sections.back() },
+    entryProvider = sections.entryProvider,
+)
+```
+
+Navigate with generated destinations:
+
+```kotlin
+sections.navigator.push(
+    LaydrRoutes.Contacts.ById.destination(
+        id = LaydrRoutes.Contacts.ById.id("ada"),
+    ),
+)
+```
+
+Single-stack apps use `LaydrNavRoutes.rememberStack(initialDestination = ...)`.
+Mixed parent stacks use `LaydrNavRoutes.rememberStack(backStack = ...)`.
 
 ## Boundaries
 
-Keep labels, icons, navigation bars, ViewModels, DI, retained-state strategy,
-auth, analytics, lifecycle decorators, Android intents, and deep links
-app-owned.
+The app owns Android UI policy, `NavDisplay`, labels, icons, navigation bars,
+ViewModels, DI, retained-state strategy, lifecycle decorators, Android intents,
+deep links, auth, analytics, and themes.
 
 Payloads, typed result sinks, and entry metadata are transient entry-scoped
 values. Use nullable accessors when route content can recover from
 destination-only or process-restored entries.
 
-AndroidX adaptive scene support is not implemented. Do not scaffold
-AndroidX adaptive Laydr APIs.
+AndroidX adaptive scene support is not implemented. Do not scaffold AndroidX
+adaptive Laydr APIs.
 
 ## Validation
 
@@ -94,3 +95,6 @@ Run Android module tasks:
 ./gradlew :app:checkLaydrRoutes
 ./gradlew :app:compileDebugKotlin
 ```
+
+Use the app's broader Android build task when route changes affect resources,
+manifests, packaging, or platform wiring.

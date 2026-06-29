@@ -1,22 +1,29 @@
 # Routes
 
-Use this reference for route tree edits, route declaration validation, and
-generated destination APIs.
+Use this when editing the filesystem route tree or fixing scanner validation.
 
-## Filesystem Route Tree
+## Contents
 
-Routes live under a configured route root, usually:
+- route roots
+- route kinds
+- names and dynamic segments
+- namespace-only segments
+- metadata
+- validation
+
+## Route Roots
 
 ```text
-src/commonMain/kotlin/routes/
+src/commonMain/kotlin/routes/  # KMP
+src/main/kotlin/routes/        # Android-only
 ```
 
-Each route directory owns `Route.kt`. Nearby `Screen.kt`, `Layout.kt`,
-`Workflow.kt`, and helper files are app-owned implementation files.
+Each directory under the route root is a path segment. A directory becomes a
+declared route only when it contains `Route.kt`.
 
 ## Route Kinds
 
-Compose-enabled route declarations use generated helpers:
+Compose-enabled routes use generated route-local helpers:
 
 ```kotlin
 internal val Route = LaydrRouteDef.screen(content = ::Screen)
@@ -28,34 +35,35 @@ internal val Route = LaydrRouteDef.screenAndLayout {
 }
 ```
 
-Core-only route graphs use `LaydrRouteDeclaration.screen`,
-`LaydrRouteDeclaration.layout`, or
-`LaydrRouteDeclaration.screenAndLayout`.
+Use:
 
-Layout-only routes must have at least one child and do not generate
-destinations.
+- `screen` for a navigation target.
+- `layout` for inherited rendering around declared descendants.
+- `screenAndLayout` when one route is both a target and an inherited layout.
+- `screenWithLayoutValues` when a screen returns `LaydrScreenContent` with
+  app-owned rendering values for inherited layouts.
 
-Use `screen` for a route that is a navigation target, even when the directory
-also has child routes. Use `screenAndLayout` only when that route should also
-wrap descendant content with inherited Laydr layout behavior.
+Layout-only routes do not generate `destination()` and must have a declared
+descendant. Core-only graphs use `LaydrRouteDeclaration.screen`,
+`LaydrRouteDeclaration.layout`, or `LaydrRouteDeclaration.screenAndLayout`.
 
 ## Names And Dynamic Segments
 
-Directory names must be lowercase snake case.
+Directory names are lowercase snake case.
 
-Static underscores become hyphens in path segments:
+Static underscores become hyphens in paths:
 
 ```text
 routes/user_profile -> /user-profile -> LaydrRoutes.UserProfile
 ```
 
-Dynamic directories use `by_<name>`:
+Dynamic segments start with `by_`:
 
 ```text
 routes/users/by_user_id -> /users/{user_id}
 ```
 
-Generated Kotlin APIs use lower camel arguments:
+Dynamic parameter factories are route-scoped and lower camel case:
 
 ```kotlin
 LaydrRoutes.Users.ByUserId.destination(
@@ -63,24 +71,26 @@ LaydrRoutes.Users.ByUserId.destination(
 )
 ```
 
-## Generated Destinations
+## Namespace-Only Segments
 
-Prefer generated destinations for app navigation:
+A directory without `Route.kt` can group child route segments:
 
-```kotlin
-LaydrRoutes.Contacts.destination()
-LaydrRoutes.Contacts.ById.destination(
-    id = LaydrRoutes.Contacts.ById.id("ada"),
-)
+```text
+routes/
+  catalog/
+    bundle/
+      by_activity_bundle_id/
+        Route.kt
+        Screen.kt
 ```
 
-The destination contains `routeKey`, `path`, and dynamic parameter values.
-Use route keys only at adapter boundaries or for lower-level route-map work.
-Read `generated-api.md` for the broader generated API map.
+Here `catalog` and `catalog/bundle` contribute path and generated object
+nesting, but they are not routes. Namespace-only directories must not contain
+direct Kotlin files.
 
 ## Metadata
 
-Route metadata must be static literal data:
+Route metadata is static descriptor data:
 
 ```kotlin
 internal val Route = LaydrRouteDef.screen(
@@ -91,18 +101,23 @@ internal val Route = LaydrRouteDef.screen(
 ```
 
 Do not treat metadata as auth policy, section chrome, route matching behavior,
-or screen state.
+state, icons, or labels rendered by the shell.
 
 ## Validation
 
-Run:
+Run the route check for the module that owns routes:
 
 ```bash
 ./gradlew :shared:checkLaydrRoutes
 ```
 
-Common failures include missing `Route.kt`, multiple or missing route-kind
-declarations, invalid directory names, invalid dynamic directories, duplicate
-generated names, and layout-only leaf routes.
+Android-only modules commonly use:
 
-Read `troubleshooting.md` before broad rewrites when validation fails.
+```bash
+./gradlew :app:checkLaydrRoutes
+```
+
+Common scanner failures: missing route root, invalid directory name, bad
+dynamic segment, multiple route declarations in `Route.kt`, Kotlin files in a
+namespace-only directory, duplicate generated names, or layout-only leaf
+routes. Fix authored route source, not generated output.

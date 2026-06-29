@@ -1,7 +1,10 @@
 # Route-Local Workflow
 
-Use `laydr-workflow` when an already matched route needs private, testable,
-multi-step feature state that should not become app-addressable destinations.
+Use `laydr-workflow` when the user is already inside a Laydr route, but that
+route owns private feature steps that need state, outputs, and headless tests.
+
+A route answers "where is the user in the app?" A workflow answers "what
+private step is this route showing right now?"
 
 Workflow is not a router. It does not replace generated destinations, Nav3
 stacks, tabs, deep links, platform Back, ViewModels, ordinary screen state, DI,
@@ -12,10 +15,23 @@ repositories, reducers, or app-shell rendering.
 A Laydr route gets the user to a place in the app. A workflow can run inside
 that place.
 
-For example, `/cart/checkout/review` is a route because the app can navigate
-to it. Inside that route, the user might move between "review order" and
-"confirm order" states. Those states are private to the review route, so they
-are workflow nodes instead of new route destinations.
+For example, `/cart/checkout/review` is a route because the app can navigate to
+it, restore it, and share it as an app location. Inside that route, the user
+can move between private "review order" and "submit order" steps. Those steps
+are workflow nodes because they are implementation details of the review route,
+not separate app locations.
+
+The important split is:
+
+- `LaydrRoutes.Cart.Checkout.Review.destination()` opens the route
+- `ReviewOrderNode` and `SubmitOrderNode` are private workflow nodes inside
+  that route
+- `CheckoutReviewOutput.OrderPlaced` lets the route navigate to the generated
+  confirmation destination
+
+That means a developer can keep checkout review as one public route while still
+testing the private review -> submit transition without rendering Compose or
+mutating the app navigation stack.
 
 The route entry composable owns the workflow:
 
@@ -47,7 +63,7 @@ Add workflow only to modules that host route-local workflow state:
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            implementation(libs.laydr.workflow)
+            implementation("dev.goquick.laydr:laydr-workflow:LAYDR_VERSION")
         }
     }
 }
@@ -56,9 +72,12 @@ kotlin {
 ```kotlin
 // Android-only route module
 dependencies {
-    implementation(libs.laydr.workflow)
+    implementation("dev.goquick.laydr:laydr-workflow:LAYDR_VERSION")
 }
 ```
+
+If your app uses a version catalog, replace the string coordinate with your
+project's alias, for example `implementation(libs.laydr.workflow)`.
 
 `laydr-workflow` owns workflow runtime contracts and Compose host APIs. Laydr
 route generation does not generate workflow nodes, renderers, reducers, test
@@ -85,7 +104,7 @@ routes/cart/checkout/review/
 `Workflow.kt` is ordinary app-owned Kotlin. It does not change generated route
 output.
 
-## Build A Review Workflow
+## Build A Checkout Review Workflow
 
 The smallest useful workflow has:
 
@@ -102,8 +121,13 @@ The smallest useful workflow has:
 Model state, events, and outputs as ordinary Kotlin types:
 
 ```kotlin
+internal data class ReviewOrderLine(
+    val label: String,
+    val quantity: Int,
+)
+
 internal data class ReviewOrderState(
-    val items: List<CartItem>,
+    val items: List<ReviewOrderLine>,
     val totalCents: Int,
 )
 
@@ -112,9 +136,9 @@ internal sealed interface ReviewOrderEvent {
     data object PlaceOrder : ReviewOrderEvent
 }
 
-internal sealed interface ConfirmOrderEvent {
-    data object EditReview : ConfirmOrderEvent
-    data object SubmitOrder : ConfirmOrderEvent
+internal sealed interface SubmitOrderEvent {
+    data object EditReview : SubmitOrderEvent
+    data object SubmitOrder : SubmitOrderEvent
 }
 
 internal sealed interface CheckoutReviewOutput {
@@ -126,7 +150,7 @@ internal sealed interface CheckoutReviewOutput {
 ```
 
 Some outputs can be workflow-local stack commands. In this example,
-`RequestSubmit` pushes the confirm node and `CancelSubmit` returns to the
+`RequestSubmit` pushes the submit node and `CancelSubmit` returns to the
 review node. Those outputs still reach the route collector, so the route should
 ignore stack-only outputs.
 
@@ -160,22 +184,22 @@ internal class ReviewOrderNode(
     }
 }
 
-internal class ConfirmOrderNode(
+internal class SubmitOrderNode(
     parentScope: CoroutineScope,
     reviewState: ReviewOrderState,
 ) : LaydrStatefulWorkflowNode<
     ReviewOrderState,
-    ConfirmOrderEvent,
+    SubmitOrderEvent,
     CheckoutReviewOutput,
 >(
     parentScope = parentScope,
     initialState = reviewState,
 ) {
-    override fun onEvent(event: ConfirmOrderEvent) {
+    override fun onEvent(event: SubmitOrderEvent) {
         when (event) {
-            ConfirmOrderEvent.EditReview ->
+            SubmitOrderEvent.EditReview ->
                 tryEmitOutput(CheckoutReviewOutput.CancelSubmit)
-            ConfirmOrderEvent.SubmitOrder ->
+            SubmitOrderEvent.SubmitOrder ->
                 tryEmitOutput(CheckoutReviewOutput.OrderPlaced)
         }
     }
@@ -209,7 +233,7 @@ internal class CheckoutReviewWorkflow(
             CheckoutReviewOutput.RequestSubmit -> {
                 val reviewNode = node as? ReviewOrderNode ?: return
                 push(
-                    ConfirmOrderNode(
+                    SubmitOrderNode(
                         parentScope = workflowScope,
                         reviewState = reviewNode.state.value,
                     ),
@@ -248,15 +272,15 @@ internal val CheckoutReviewRenderer:
             )
         }
 
-        register<ConfirmOrderNode> { node ->
+        register<SubmitOrderNode> { node ->
             val state by node.state.collectAsState()
-            ConfirmOrderScreen(
+            SubmitOrderScreen(
                 state = state,
                 onEditReview = {
-                    node.onEvent(ConfirmOrderEvent.EditReview)
+                    node.onEvent(SubmitOrderEvent.EditReview)
                 },
                 onSubmitOrder = {
-                    node.onEvent(ConfirmOrderEvent.SubmitOrder)
+                    node.onEvent(SubmitOrderEvent.SubmitOrder)
                 },
             )
         }
@@ -309,17 +333,22 @@ parameters, `CompositionLocal` values, Koin injections, or any other app DI
 pattern. See [Route Dependencies](route-dependencies.md) for dependency
 ownership patterns.
 
+Notice that the submit step did not become
+`LaydrRoutes.Cart.Checkout.Submit.destination()`. It stays private to the
+review route. Only the final `OrderPlaced` output crosses back into app
+navigation by using the generated confirmation destination.
+
 ## Test Workflows Headlessly
 
 Workflow nodes are headless, so you can test workflow behavior without Compose:
 
 ```kotlin
 @Test
-fun placeOrderOpensConfirmThenEmitsOrderPlaced() = runTest {
+fun placeOrderOpensSubmitThenEmitsOrderPlaced() = runTest {
     val workflow = CheckoutReviewWorkflow(
         workflowScope = this,
         initialState = ReviewOrderState(
-            items = listOf(CartItem("Bag", quantity = 1)),
+            items = listOf(ReviewOrderLine("Bag", quantity = 1)),
             totalCents = 12_900,
         ),
     )
@@ -329,11 +358,11 @@ fun placeOrderOpensConfirmThenEmitsOrderPlaced() = runTest {
         .updateTopNode<ReviewOrderNode> {
             onEvent(ReviewOrderEvent.PlaceOrder)
         }
-        .awaitTopNodeIs<ConfirmOrderNode>()
+        .awaitTopNodeIs<SubmitOrderNode>()
         .assertStackSize(2)
         .assertNextOutput(CheckoutReviewOutput.RequestSubmit)
-        .updateTopNode<ConfirmOrderNode> {
-            onEvent(ConfirmOrderEvent.SubmitOrder)
+        .updateTopNode<SubmitOrderNode> {
+            onEvent(SubmitOrderEvent.SubmitOrder)
         }
         .assertNextOutput(CheckoutReviewOutput.OrderPlaced)
 
