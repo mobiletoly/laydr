@@ -125,7 +125,7 @@ class LaydrPublishingPlugin : Plugin<Project> {
 
     private companion object {
         const val DEFAULT_LAYDR_GROUP = "dev.goquick.laydr"
-        const val LOCAL_DEVELOPMENT_VERSION = "0.2.0"
+        const val LOCAL_DEVELOPMENT_VERSION = "0.2.0-SNAPSHOT"
 
         val moduleMetadata = mapOf(
             "laydr-core" to ModuleMetadata(
