@@ -95,6 +95,27 @@ integration, and owner-facing reset. The app still owns where the stack lives,
 which foreign Nav3 keys are mixed into it, how `NavDisplay` is rendered, and
 what any entry metadata means.
 
+Transient entry storage has a separate, explicit lifetime. By default the
+stack creates a composition-owned `LaydrNavEntryStateOwner`. An app that must
+survive configuration recreation passes an owner retained by its ViewModel or
+another app-selected boundary:
+
+```kotlin
+val stack = rememberLaydrNavStack(
+    routeDefinitions = LaydrComposeRoutes.definitions,
+    initialDestination = LaydrRoutes.Home.destination(),
+    entryStateOwner = navigationViewModel.entryStateOwner,
+    notFoundContent = { notFound -> ... },
+)
+```
+
+The owner is adapter-neutral and stores only in-memory payload/result state.
+The current composition binds that owner to its restored back stack and entry
+provider. Binding the same owner again invalidates the old binding, so an old
+stack, sections object, or navigator fails before mutating a stale back stack.
+Applications retain the owner, never a composition-created navigator, stack,
+section wrapper, entry provider, coroutine scope, or platform owner.
+
 For app-owned or mixed parent stacks, pass an existing `NavBackStack<NavKey>`:
 
 ```kotlin
@@ -178,6 +199,12 @@ membership, remembers one stack per section, persists the selected section
 root key with Compose saved state, and can add adaptive scene metadata when an
 app passes optional scene support. Laydr does not infer section labels or
 icons from route metadata.
+
+Section helpers use one entry-state owner and one binding for the complete
+section set. Every section stack contributes active entry ids to cleanup.
+Passing `entryStateOwner` to `rememberLaydrNavSections` therefore preserves
+payloads and pending results in every restored section stack under the same
+owner lifetime.
 
 Typed section selection is available when app UI should reveal a section
 without mutating that section's stack:
@@ -321,12 +348,14 @@ The payload is typed at the route-local read site with
 
 Payloads are intentionally transient. They are not encoded into
 `LaydrRouteKey`, path parameters, route metadata, entry metadata, or generated
-route declarations, and they are not serialized with Nav3 saved-state stacks.
-`LaydrNavKey` may carry an internal runtime entry token so repeated
-payload-bearing pushes of the same destination can be distinct stack entries,
-but route matching, section membership, scene support, and path conversion use
-the base route id and parameters. After process restoration, the entry renders
-without a payload and the app owns the fallback behavior.
+route declarations. Every entry created from `LaydrNavLaunch` serializes an
+opaque entry-instance id, including launches without payload, metadata, or a
+result registration. A recreated composition can use that id to correlate the
+restored key with an app-retained owner, but it never serializes transient
+values. Repeated launches of the same destination use distinct ids, while
+destination-only navigation remains route-identity based. Route matching,
+section membership, scene support, and path conversion use only the base route
+id and parameters.
 
 This keeps Laydr responsible only for typed entry-scoped transport. Auth
 policy, bootstrap policy, result handling, modal presentation, retained state,
@@ -334,12 +363,18 @@ and dependency ownership remain app code.
 
 Route results use the same boundary.
 `LaydrNavStackNavigator.pushForResult<T>(LaydrNavLaunch(...))` registers a
-transient one-shot callback for one tokenized entry, and route content can
+transient one-shot callback for one identified entry, and route content can
 complete or cancel it through a typed result sink. Completion delivers the
 callback only; it does not pop, replace, reset, switch sections, or run
-post-result app policy. If the entry leaves the stack before completion,
-Laydr cancels the pending result once. Process-restored entries have no
-pending result callbacks.
+post-result app policy. If the entry leaves the stack before completion, Laydr
+removes its payload and cancels the pending result once. Completion and
+explicit cancellation also deliver once.
+
+Configuration recreation preserves the payload and callback only when the new
+KMP composition binds the same app-retained owner and restores the matching
+entry id. A new owner has no payload or callback for that id, which is the
+supported process-restoration fallback. `clear()` ends the owner lifetime,
+removes all payloads, and cancels every remaining registration once.
 
 `LaydrNavSectionsNavigator.pushForResult<T>(LaydrNavLaunch(...))` uses the
 same result boundary and adds section return semantics for cross-section

@@ -84,7 +84,7 @@ internal fun laydrNavEntryProvider(
     ) -> Unit = { _, content -> content() },
     sceneSupport: LaydrNavSceneSupport = LaydrNavSceneSupport.None,
     entryMetadata: (LaydrNavEntryContext) -> Map<String, Any> = { emptyMap() },
-    entryStore: LaydrNavEntryStore?,
+    entryStore: LaydrNavEntryStateAccess?,
     screenContent: @Composable (match: LaydrRouteMatch) -> LaydrScreenContent,
 ): (NavKey) -> NavEntry<NavKey> = { key ->
     val laydrKey = key as? LaydrNavKey
@@ -168,7 +168,7 @@ internal fun laydrNavEntryProvider(
     routeDefinitions: LaydrComposeRouteDefinitions,
     sceneSupport: LaydrNavSceneSupport = LaydrNavSceneSupport.None,
     entryMetadata: (LaydrNavEntryContext) -> Map<String, Any> = { emptyMap() },
-    entryStore: LaydrNavEntryStore?,
+    entryStore: LaydrNavEntryStateAccess?,
     notFoundContent: @Composable (notFound: LaydrNavNotFound) -> Unit,
 ): (NavKey) -> NavEntry<NavKey> =
     laydrNavEntryProvider(
@@ -304,7 +304,7 @@ internal fun <Data : Any> laydrNavSectionEntryProvider(
     sectionSet: LaydrNavSectionSet<Data>,
     sceneSupport: LaydrNavSceneSupport = LaydrNavSceneSupport.None,
     entryMetadata: (LaydrNavSectionEntryContext<Data>) -> Map<String, Any> = { emptyMap() },
-    entryStore: LaydrNavEntryStore?,
+    entryStore: LaydrNavEntryStateAccess?,
     notFoundContent: @Composable (notFound: LaydrNavNotFound) -> Unit,
 ): (NavKey) -> NavEntry<NavKey> = { key ->
     val laydrKey = key as? LaydrNavKey

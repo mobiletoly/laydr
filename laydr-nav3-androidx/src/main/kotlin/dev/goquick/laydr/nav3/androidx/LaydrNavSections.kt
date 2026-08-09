@@ -27,7 +27,7 @@ public class LaydrNavSections<Data : Any> internal constructor(
      */
     public val navigator: LaydrNavSectionsNavigator = coordinator
 
-    internal val entryStore: LaydrNavEntryStore
+    internal val entryStore: LaydrNavEntryStateAccess
         get() = coordinator.entryStore
 
     /**

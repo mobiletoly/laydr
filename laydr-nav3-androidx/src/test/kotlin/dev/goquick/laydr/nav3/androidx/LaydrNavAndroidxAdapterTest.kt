@@ -47,21 +47,30 @@ class LaydrNavAndroidxAdapterTest {
     }
 
     @Test
-    fun keySerializationRestoresOnlyRouteIdentity() {
+    fun keySerializationRestoresRouteIdentityAndEntryInstanceId() {
         val key = LaydrNavKey(
             routeId = "Contacts.ById",
             parameters = mapOf("id" to "alpha"),
-            entryToken = "token",
+            entryInstanceId = "instance",
             entryMetadata = LaydrNavEntryMetadata("transition" to "modal"),
         )
 
         val encoded = Json.encodeToString(LaydrNavKeySerializer, key)
         val restored = Json.decodeFromString(LaydrNavKeySerializer, encoded)
 
-        assertEquals("""{"routeId":"Contacts.ById","parameters":{"id":"alpha"}}""", encoded)
-        assertEquals(LaydrNavKey(routeId = "Contacts.ById", parameters = mapOf("id" to "alpha")), restored)
-        assertNull(restored.entryToken)
+        assertEquals(
+            """{"routeId":"Contacts.ById","parameters":{"id":"alpha"},"entryInstanceId":"instance"}""",
+            encoded,
+        )
+        assertEquals("instance", restored.entryInstanceId)
+        assertEquals(key.toLaydrRouteKey(), restored.toLaydrRouteKey())
         assertEquals(emptyMap(), restored.entryMetadata.values)
+
+        val legacy = Json.decodeFromString(
+            LaydrNavKeySerializer,
+            """{"routeId":"Contacts","parameters":{}}""",
+        )
+        assertNull(legacy.entryInstanceId)
     }
 
     @Test
@@ -98,6 +107,25 @@ class LaydrNavAndroidxAdapterTest {
         assertTrue(stack.navigator.back())
         assertEquals(listOf(graph.contacts.key().navKey()), stack.backStack.toList())
         assertFalse(stack.navigator.back())
+    }
+
+    @Test
+    fun destinationOnlyPushPreservesCurrentLaunchedEntry() {
+        val graph = testGraph()
+        val stack = LaydrNavStack(
+            coordinator = LaydrNavStackCoordinator(
+                appGraph = graph.appGraph,
+                backStack = NavBackStack<NavKey>(graph.contacts.key().navKey()),
+            ),
+            entryProvider = { key -> androidx.navigation3.runtime.NavEntry(key = key) {} },
+        )
+
+        stack.navigator.push(LaydrNavLaunch(TestDestination(graph.contacts.key())))
+        val launchedKey = stack.backStack.last()
+        stack.navigator.push(TestDestination(graph.contacts.key()))
+
+        assertEquals(2, stack.backStack.size)
+        assertEquals(launchedKey, stack.backStack.last())
     }
 
     @Test
@@ -202,6 +230,67 @@ class LaydrNavAndroidxAdapterTest {
 
         assertEquals(listOf(TestRouteResult("done")), results)
         assertEquals(0, cancelCount)
+        assertEquals(0, stack.entryStore.resultCount)
+    }
+
+    @Test
+    fun lookupDoesNotPruneAfterDirectBackStackMutation() {
+        val graph = testGraph()
+        val stack = LaydrNavStack(
+            coordinator = LaydrNavStackCoordinator(
+                appGraph = graph.appGraph,
+                backStack = NavBackStack<NavKey>(graph.contacts.key().navKey()),
+            ),
+            entryProvider = { key -> androidx.navigation3.runtime.NavEntry(key = key) {} },
+        )
+        stack.navigator.push(
+            LaydrNavLaunch(
+                destination = TestDestination(graph.detail.key(mapOf("id" to "alpha"))),
+                payload = "payload",
+            ),
+        )
+        val payloadKey = stack.backStack.removeLastOrNull() as LaydrNavKey
+
+        assertTrue(stack.entryStore.lookupPayload(payloadKey) is LaydrNavPayloadLookup.Present)
+        assertEquals(1, stack.entryStore.payloadCount)
+
+        stack.entryStore.prune()
+
+        assertTrue(stack.entryStore.lookupPayload(payloadKey) is LaydrNavPayloadLookup.Missing)
+        assertEquals(0, stack.entryStore.payloadCount)
+    }
+
+    @Test
+    fun failedMutationPrunesRegistrationAndPreservesPrimaryFailure() {
+        val graph = testGraph()
+        val stack = LaydrNavStack(
+            coordinator = LaydrNavStackCoordinator(
+                appGraph = graph.appGraph,
+                backStack = NavBackStack<NavKey>(graph.contacts.key().navKey()),
+            ),
+            entryProvider = { key -> androidx.navigation3.runtime.NavEntry(key = key) {} },
+        )
+        var cancellationCount = 0
+        stack.entryStore.keyForLaunchAndResult(
+            key = graph.contacts.key().navKey(),
+            launch = LaydrNavLaunch(TestDestination(graph.contacts.key())),
+            resultType = String::class,
+            onCancel = {
+                cancellationCount++
+                error("cleanup")
+            },
+            onResult = {},
+        )
+
+        val failure = assertFailsWith<IllegalStateException> {
+            stack.entryStore.mutateAndPrune {
+                error("mutation")
+            }
+        }
+
+        assertEquals("mutation", failure.message)
+        assertEquals("cleanup", failure.suppressedExceptions.single().message)
+        assertEquals(1, cancellationCount)
         assertEquals(0, stack.entryStore.resultCount)
     }
 

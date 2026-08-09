@@ -77,8 +77,10 @@ For mixed parent stacks, pass an AndroidX `NavBackStack<NavKey>`.
 
 Default AndroidX helpers create stack state with AndroidX
 `rememberNavBackStack(...)`, so route identity restores across configuration
-changes and Android process death. Restored Laydr entries contain route id and
-route parameters only.
+changes and Android process death. Every entry created from `LaydrNavLaunch`
+contains route id and route parameters plus an opaque entry-instance id,
+including payload-free launches. The id does not restore payload objects or
+callbacks.
 
 ## Boundaries
 
@@ -89,6 +91,9 @@ deep links, auth, analytics, and themes.
 Payloads, typed result sinks, and entry metadata are transient entry-scoped
 values. Use nullable accessors when route content can recover from
 destination-only or process-restored entries.
+
+Do not promise KMP retained-owner parity here. The AndroidX adapter does not
+currently expose `LaydrNavEntryStateOwner` integration.
 
 Foreign keys in app-owned mixed stacks are app-owned. If they must restore
 after process death, make them serializable AndroidX `NavKey`s.

@@ -223,6 +223,26 @@ internal fun Screen(
 Stack-only outputs still reach the host output callback; ignore them in the
 route screen when they only drive private workflow stack transitions.
 
+The default host owns and disposes a workflow created with
+`rememberLaydrWorkflow`. If an entry-scoped ViewModel owns the workflow, keep
+that ownership explicit:
+
+```kotlin
+LaydrWorkflowHost(
+    workflow = workflowViewModel.workflow,
+    renderer = CheckoutRenderer,
+    ownership = LaydrWorkflowOwnership.External,
+) { output ->
+    handleOutput(output)
+}
+```
+
+The ViewModel must call `workflow.dispose()` from `onCleared()`. Do not retain
+a navigator inside the ViewModel or workflow; collect outputs in the current
+route composition and navigate with the currently composed navigator. External
+ownership keeps nodes attached while the host is briefly absent and buffers
+workflow outputs until collection resumes.
+
 Platform Back is not automatic. If a route should Back through workflow nodes,
 wire app-owned Back handling to call `workflow.back()` when
 `workflow.canBack()` is true.

@@ -36,6 +36,7 @@ public fun saveLaydrNavReturnHistory(
     history: List<LaydrNavReturnEntry>,
 ): List<String> =
     buildList {
+        add(ReturnHistoryFormatV2)
         add(history.size.toString())
         history.forEach { entry ->
             add(entry.sourceSectionStateId)
@@ -50,7 +51,11 @@ public fun saveLaydrNavReturnHistory(
  * Restores return-history entries from [saved], or `null` for invalid data.
  */
 public fun restoreLaydrNavReturnHistory(saved: List<String>): List<LaydrNavReturnEntry>? {
-    val cursor = LaydrNavReturnHistoryCursor(saved)
+    val storesEntryInstanceIds = saved.firstOrNull() == ReturnHistoryFormatV2
+    val cursor = LaydrNavReturnHistoryCursor(
+        values = if (storesEntryInstanceIds) saved.drop(1) else saved,
+        storesEntryInstanceIds = storesEntryInstanceIds,
+    )
     val count = cursor.nextNonNegativeInt() ?: return null
     val entries = mutableListOf<LaydrNavReturnEntry>()
     repeat(count) {
@@ -87,10 +92,12 @@ private fun MutableList<String>.addKey(key: LaydrNavEntryKey) {
             add(name)
             add(value)
         }
+    add(key.entryInstanceId.orEmpty())
 }
 
 private class LaydrNavReturnHistoryCursor(
     private val values: List<String>,
+    private val storesEntryInstanceIds: Boolean,
 ) {
     private var index = 0
 
@@ -124,6 +131,18 @@ private class LaydrNavReturnHistoryCursor(
                 put(name, value)
             }
         }
-        return LaydrNavEntryKey(routeId = routeId, parameters = parameters)
+        val entryInstanceId = if (storesEntryInstanceIds) {
+            val savedEntryInstanceId = nextString() ?: return null
+            savedEntryInstanceId.takeIf(String::isNotEmpty)
+        } else {
+            null
+        }
+        return LaydrNavEntryKey(
+            routeId = routeId,
+            parameters = parameters,
+            entryInstanceId = entryInstanceId,
+        )
     }
 }
+
+private const val ReturnHistoryFormatV2: String = "laydr-nav-return-history-v2"

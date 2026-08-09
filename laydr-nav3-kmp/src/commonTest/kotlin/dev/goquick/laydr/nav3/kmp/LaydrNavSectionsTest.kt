@@ -12,6 +12,7 @@ import dev.goquick.laydr.core.LaydrRouteKey
 import dev.goquick.laydr.core.LaydrRouteMap
 import dev.goquick.laydr.core.LaydrScreenDestination
 import dev.goquick.laydr.core.LaydrScreenRouteRef
+import dev.goquick.laydr.nav.runtime.LaydrNavEntryStateOwner
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -22,6 +23,68 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class LaydrNavSectionsTest {
+    @Test
+    fun retainedOwnerRebindsSectionPayloadAndResultToRestoredStacks() {
+        val graph = testGraph()
+        val sections = testSections(graph)
+        val owner = LaydrNavEntryStateOwner()
+        val firstControllers = controllersFor(graph, sections)
+        val firstStore = LaydrNavEntryStateAccess(
+            runtimeBinding = owner.bind(),
+            currentStack = {
+                firstControllers.values.flatMap { controller -> controller.backStack }
+            },
+        )
+        val firstCoordinator = LaydrNavSectionsCoordinator(
+            sections = sections,
+            initialSection = sections.items.last(),
+            sectionControllers = firstControllers,
+            entryStore = firstStore,
+        )
+        var completed: TestRouteResult? = null
+        firstCoordinator.pushForResult(
+            launch = LaydrNavLaunch(
+                destination = TestDestination(graph.detail.key(mapOf("id" to "alpha"))),
+                payload = "section-challenge",
+            ),
+            onCancel = {},
+            resultType = TestRouteResult::class,
+        ) { result -> completed = result }
+        val restoredControllers = firstControllers.mapValues { (_, controller) ->
+            LaydrNavStackCoordinator(
+                appGraph = graph.appGraph,
+                backStack = NavBackStack(*controller.backStack.toTypedArray()),
+            )
+        }
+        val reboundStore = LaydrNavEntryStateAccess(
+            runtimeBinding = owner.bind(),
+            currentStack = {
+                restoredControllers.values.flatMap { controller -> controller.backStack }
+            },
+        )
+        val reboundCoordinator = LaydrNavSectionsCoordinator(
+            sections = sections,
+            initialSection = sections.items.first(),
+            sectionControllers = restoredControllers,
+            entryStore = reboundStore,
+        )
+        val restoredKey = restoredControllers.getValue(sections.items.first()).backStack.last() as LaydrNavKey
+
+        assertFailsWith<IllegalStateException> {
+            firstCoordinator.push(TestDestination(graph.contacts.key()))
+        }
+        val payload = reboundCoordinator.entryStore.lookupPayload(restoredKey)
+        assertTrue(payload is LaydrNavPayloadLookup.Present)
+        assertEquals("section-challenge", payload.payload)
+        val result = reboundCoordinator.entryStore.lookupResult(restoredKey)
+        assertTrue(result is LaydrNavResultLookup.Present)
+        @Suppress("UNCHECKED_CAST")
+        (result.sink as LaydrNavResultSink<TestRouteResult>).complete(TestRouteResult("accepted"))
+
+        assertEquals(TestRouteResult("accepted"), completed)
+        assertEquals(0, reboundCoordinator.entryStore.resultCount)
+    }
+
     @Test
     fun declaresSectionsInOrderAndFindsOwningSection() {
         val graph = testGraph()

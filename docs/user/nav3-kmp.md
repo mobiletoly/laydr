@@ -94,8 +94,8 @@ Use the focused navigation pages when the app needs more detail:
   return-aware flows, and app Back.
 - [Stacks And Fullscreen Routes](navigation/stacks.md) for single stacks,
   mixed parent stacks, and fullscreen routes.
-- [Navigation State](navigation/state.md) for saved state, ViewModels, and
-  `NavDisplay` decorators.
+- [Navigation State](navigation/state.md) for saved state, ViewModels,
+  app-owned configuration retention, and `NavDisplay` decorators.
 - [Payloads And Results](navigation/payloads-results.md) for transient launch
   data and one-shot answers.
 - [Advanced Navigation Topics](navigation/advanced.md) for entry metadata,

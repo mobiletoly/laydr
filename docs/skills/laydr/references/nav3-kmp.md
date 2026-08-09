@@ -167,6 +167,23 @@ val payload = laydrNavPayloadOrNull<SignInPayload>()
 Use `requireLaydrNavPayload<T>()` only when the route cannot render without
 the value. Process-restored or destination-only entries may not have payloads.
 
+When an Android KMP app must preserve payloads and pending results across
+configuration recreation, retain `LaydrNavEntryStateOwner` in an app-owned
+ViewModel and pass it to generated `rememberStack` or `rememberSections`:
+
+```kotlin
+val stack = LaydrNavRoutes.rememberStack(
+    initialDestination = LaydrRoutes.Home.destination(),
+    entryStateOwner = navigationViewModel.entryStateOwner,
+    notFoundContent = { notFound -> NotFound(notFound) },
+)
+```
+
+The default owner is composition-scoped. A fresh owner after process
+restoration has no payloads or callbacks. Retain only the owner; always
+reacquire stacks, sections, navigators, and entry providers from the current
+composition because rebinding invalidates the old navigator.
+
 Use `pushForResult` for one-shot answers:
 
 ```kotlin
@@ -188,7 +205,8 @@ resultSink.complete(SignInResult.SignedIn(userId))
 ```
 
 Completing a result does not pop the route. Call app-owned navigation
-separately when the route should close.
+separately when the route should close. Completion, cancellation, and pop
+cleanup are one-shot.
 
 ## Parent Stack Capability
 

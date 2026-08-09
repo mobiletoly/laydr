@@ -177,7 +177,8 @@ navigator.push(
 
 `requireLaydrNavPayload<T>()` throws, and
 `laydrNavPayloadOrNull<T>()` returns `null`, when the entry was not launched
-with that payload, was process-restored, or received the wrong runtime type.
+with that payload, was process-restored with a new owner, was recreated
+without the same retained KMP owner, or received the wrong runtime type.
 
 `requireLaydrNavResultSink<T>()` throws, and
 `laydrNavResultSinkOrNull<T>()` returns `null`, when the entry was not launched
@@ -196,6 +197,12 @@ if (resultSink == null) {
 
 Completing a result does not pop the route. Call app-owned navigation
 separately when the route should close.
+
+If navigation reports a stale binding, app code retained a stack, sections
+object, navigator, or entry provider across recreation. Retain only
+`LaydrNavEntryStateOwner` in the ViewModel and reacquire composition-created
+wrappers from the current composition. Do not capture the destroyed Activity
+or composition in retained payloads or callbacks.
 
 ## Workflow Failures
 

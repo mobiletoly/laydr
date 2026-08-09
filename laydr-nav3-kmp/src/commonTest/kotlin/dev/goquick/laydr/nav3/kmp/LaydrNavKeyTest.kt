@@ -76,13 +76,13 @@ class LaydrNavKeyTest {
     }
 
     @Test
-    fun entryTokenDistinguishesRuntimeEntriesWithoutChangingRouteIdentity() {
+    fun entryInstanceIdDistinguishesRuntimeEntriesWithoutChangingRouteIdentity() {
         val base = LaydrNavKey(
             routeId = "Users.ById",
             parameters = mapOf("id" to "alpha"),
         )
-        val first = base.withEntryToken("first")
-        val second = base.withEntryToken("second")
+        val first = base.withEntryInstanceId("first")
+        val second = base.withEntryInstanceId("second")
 
         assertNotEquals(base, first)
         assertNotEquals(first, second)

@@ -7,9 +7,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.navigation3.runtime.NavKey
-import dev.goquick.laydr.nav.runtime.LaydrNavEntryStore as RuntimeLaydrNavEntryStore
+import dev.goquick.laydr.nav.runtime.LaydrNavEntryStateBinding as RuntimeLaydrNavEntryStateBinding
 import dev.goquick.laydr.nav.runtime.LaydrNavPayloadLookup as RuntimeLaydrNavPayloadLookup
 import dev.goquick.laydr.nav.runtime.LaydrNavResultLookup as RuntimeLaydrNavResultLookup
+import dev.goquick.laydr.nav.runtime.LaydrNavResultSink as RuntimeLaydrNavResultSink
 import kotlin.reflect.KClass
 
 @PublishedApi
@@ -89,28 +90,20 @@ public inline fun <reified T : Any> requireLaydrNavPayload(): T {
 public class LaydrNavResultSink<Result : Any> internal constructor(
     @PublishedApi
     internal val resultType: KClass<*>,
-    private val entryToken: String,
-    private val entryStore: LaydrNavEntryStore,
+    private val runtimeSink: RuntimeLaydrNavResultSink<Result>,
 ) {
     /**
      * Completes the pending route result with [result].
      */
     public fun complete(result: Result) {
-        entryStore.completeResult(
-            entryToken = entryToken,
-            resultType = resultType,
-            result = result,
-        )
+        runtimeSink.complete(result)
     }
 
     /**
      * Cancels the pending route result.
      */
     public fun cancel() {
-        entryStore.cancelResult(
-            entryToken = entryToken,
-            resultType = resultType,
-        )
+        runtimeSink.cancel()
     }
 }
 
@@ -158,24 +151,15 @@ public inline fun <reified Result : Any> requireLaydrNavResultSink(): LaydrNavRe
     }
 }
 
-internal class LaydrNavEntryStore(
+internal class LaydrNavEntryStateAccess(
+    internal val runtimeBinding: RuntimeLaydrNavEntryStateBinding,
     private val currentStack: () -> List<NavKey>,
 ) {
-    internal val runtimeStore = RuntimeLaydrNavEntryStore {
-        currentStack().mapNotNull { key -> (key as? LaydrNavKey)?.entryKey }
-    }
-
-    fun keyWithPayload(
-        key: LaydrNavKey,
-        payload: Any,
-    ): LaydrNavKey =
-        LaydrNavKey(runtimeStore.keyWithPayload(key = key.entryKey, payload = payload))
-
     fun keyForLaunch(
         key: LaydrNavKey,
         launch: LaydrNavLaunch,
     ): LaydrNavKey =
-        LaydrNavKey(runtimeStore.keyForLaunch(key = key.entryKey, launch = launch))
+        LaydrNavKey(runtimeBinding.keyForLaunch(key = key.entryKey, launch = launch))
 
     fun keyForLaunchAndResult(
         key: LaydrNavKey,
@@ -185,7 +169,7 @@ internal class LaydrNavEntryStore(
         onResult: (Any) -> Unit,
     ): LaydrNavKey =
         LaydrNavKey(
-            runtimeStore.keyForLaunchAndResult(
+            runtimeBinding.keyForLaunchAndResult(
                 key = key.entryKey,
                 launch = launch,
                 resultType = resultType,
@@ -194,81 +178,65 @@ internal class LaydrNavEntryStore(
             ),
         )
 
-    fun keyWithResult(
-        key: LaydrNavKey,
-        resultType: KClass<*>,
-        onCancel: () -> Unit,
-        onResult: (Any) -> Unit,
-    ): LaydrNavKey =
-        LaydrNavKey(
-            runtimeStore.keyWithResult(
-                key = key.entryKey,
-                resultType = resultType,
-                onCancel = onCancel,
-                onResult = onResult,
-            ),
-        )
-
-    fun keyWithPayloadAndResult(
-        key: LaydrNavKey,
-        payload: Any,
-        resultType: KClass<*>,
-        onCancel: () -> Unit,
-        onResult: (Any) -> Unit,
-    ): LaydrNavKey =
-        LaydrNavKey(
-            runtimeStore.keyWithPayloadAndResult(
-                key = key.entryKey,
-                payload = payload,
-                resultType = resultType,
-                onCancel = onCancel,
-                onResult = onResult,
-            ),
-        )
-
     fun lookupPayload(key: LaydrNavKey): LaydrNavPayloadLookup {
-        return when (val lookup = runtimeStore.lookupPayload(key.entryKey)) {
+        return when (val lookup = runtimeBinding.lookupPayload(key.entryKey)) {
             RuntimeLaydrNavPayloadLookup.Missing -> LaydrNavPayloadLookup.Missing
             is RuntimeLaydrNavPayloadLookup.Present -> LaydrNavPayloadLookup.Present(lookup.payload)
         }
     }
 
+    @Suppress("UNCHECKED_CAST")
     fun lookupResult(key: LaydrNavKey): LaydrNavResultLookup {
-        return when (val lookup = runtimeStore.lookupResult(key.entryKey)) {
+        return when (val lookup = runtimeBinding.lookupResult(key.entryKey)) {
             RuntimeLaydrNavResultLookup.Missing -> LaydrNavResultLookup.Missing
             is RuntimeLaydrNavResultLookup.Present -> LaydrNavResultLookup.Present(
                 resultType = lookup.resultType,
                 sink = LaydrNavResultSink<Any>(
                     resultType = lookup.resultType,
-                    entryToken = key.entryToken ?: return LaydrNavResultLookup.Missing,
-                    entryStore = this,
+                    runtimeSink = lookup.sink as RuntimeLaydrNavResultSink<Any>,
                 ),
             )
         }
     }
 
-    fun completeResult(
-        entryToken: String,
-        resultType: KClass<*>,
-        result: Any,
-    ) {
-        runtimeStore.completeResult(entryToken = entryToken, resultType = resultType, result = result)
-    }
-
-    fun cancelResult(
-        entryToken: String,
-        resultType: KClass<*>,
-    ) {
-        runtimeStore.cancelResult(entryToken = entryToken, resultType = resultType)
-    }
-
     fun prune() {
-        runtimeStore.prune()
+        runtimeBinding.prune(
+            currentStack().mapNotNull { key -> (key as? LaydrNavKey)?.entryKey },
+        )
     }
+
+    fun <T> mutateAndPrune(mutation: () -> T): T {
+        var mutationFailure: Throwable? = null
+        try {
+            return mutation()
+        } catch (thrown: Throwable) {
+            mutationFailure = thrown
+            throw thrown
+        } finally {
+            try {
+                prune()
+            } catch (cleanupFailure: Throwable) {
+                val primaryFailure = mutationFailure
+                if (primaryFailure == null) {
+                    throw cleanupFailure
+                }
+                primaryFailure.addSuppressed(cleanupFailure)
+            }
+        }
+    }
+
+    val isActive: Boolean
+        get() = runtimeBinding.isActive
+
+    fun requireActive() {
+        runtimeBinding.requireActive()
+    }
+
+    fun close(): Boolean = runtimeBinding.close()
 
     internal val payloadCount: Int
-        get() = runtimeStore.payloadCount
+        get() = runtimeBinding.payloadCount
 
     internal val resultCount: Int
-        get() = runtimeStore.resultCount
+        get() = runtimeBinding.resultCount
 }

@@ -8,7 +8,7 @@ import dev.goquick.laydr.core.LaydrRouteKey
 /**
  * Adapter-neutral identity for one Laydr navigation entry.
  *
- * [routeId] and [parameters] are stable route identity. [entryToken] and
+ * [routeId] and [parameters] are stable route identity. [entryInstanceId] and
  * [entryMetadata] are transient entry-scoped runtime data used by adapters to
  * distinguish repeated launches, payloads, result sinks, and app-owned
  * metadata without changing route matching.
@@ -20,9 +20,9 @@ public class LaydrNavEntryKey public constructor(
     public val routeId: String,
     parameters: Map<String, String> = emptyMap(),
     /**
-     * Transient runtime token for entry-scoped payloads or result sinks.
+     * Opaque saved identity for one distinct navigation entry instance.
      */
-    public val entryToken: String? = null,
+    public val entryInstanceId: String? = null,
     /**
      * App-owned metadata attached to this runtime entry.
      */
@@ -44,26 +44,26 @@ public class LaydrNavEntryKey public constructor(
         LaydrRouteKey(routeId = routeId, parameters = parameters)
 
     /**
-     * Returns a copy with [entryToken] while preserving route identity and
-     * metadata.
+     * Returns a copy with [entryInstanceId] while preserving route identity
+     * and metadata.
      */
-    public fun withEntryToken(entryToken: String): LaydrNavEntryKey =
+    public fun withEntryInstanceId(entryInstanceId: String): LaydrNavEntryKey =
         LaydrNavEntryKey(
             routeId = routeId,
             parameters = parameters,
-            entryToken = entryToken,
+            entryInstanceId = entryInstanceId,
             entryMetadata = entryMetadata,
         )
 
     /**
      * Returns a copy with [entryMetadata] while preserving route identity and
-     * token.
+     * instance identity.
      */
     public fun withEntryMetadata(entryMetadata: LaydrNavEntryMetadata): LaydrNavEntryKey =
         LaydrNavEntryKey(
             routeId = routeId,
             parameters = parameters,
-            entryToken = entryToken,
+            entryInstanceId = entryInstanceId,
             entryMetadata = entryMetadata,
         )
 
@@ -72,22 +72,22 @@ public class LaydrNavEntryKey public constructor(
             other is LaydrNavEntryKey &&
             routeId == other.routeId &&
             parameters == other.parameters &&
-            entryToken == other.entryToken &&
+            entryInstanceId == other.entryInstanceId &&
             entryMetadata.values == other.entryMetadata.values
 
     override fun hashCode(): Int {
         var result = routeId.hashCode()
         result = 31 * result + parameters.hashCode()
-        result = 31 * result + (entryToken?.hashCode() ?: 0)
+        result = 31 * result + (entryInstanceId?.hashCode() ?: 0)
         result = 31 * result + entryMetadata.values.hashCode()
         return result
     }
 
     override fun toString(): String =
-        if (entryToken == null && entryMetadata.values.isEmpty()) {
+        if (entryInstanceId == null && entryMetadata.values.isEmpty()) {
             "LaydrNavEntryKey(routeId=$routeId, parameters=$parameters)"
         } else {
-            "LaydrNavEntryKey(routeId=$routeId, parameters=$parameters, entryToken=$entryToken, entryMetadata=${entryMetadata.values})"
+            "LaydrNavEntryKey(routeId=$routeId, parameters=$parameters, entryInstanceId=$entryInstanceId, entryMetadata=${entryMetadata.values})"
         }
 }
 

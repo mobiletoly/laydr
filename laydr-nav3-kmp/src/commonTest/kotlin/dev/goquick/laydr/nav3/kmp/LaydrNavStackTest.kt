@@ -9,6 +9,8 @@ import dev.goquick.laydr.core.LaydrRoute
 import dev.goquick.laydr.core.LaydrRouteKey
 import dev.goquick.laydr.core.LaydrRouteMap
 import dev.goquick.laydr.core.LaydrScreenDestination
+import dev.goquick.laydr.nav.runtime.LaydrNavEntryStateOwner
+import kotlinx.serialization.json.Json
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -18,6 +20,75 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class LaydrNavStackTest {
+    @Test
+    fun keySerializerAcceptsLegacyKeysWithoutEntryInstanceId() {
+        val restored = Json.decodeFromString(
+            LaydrNavKeySerializer,
+            """{"routeId":"Contacts","parameters":{}}""",
+        )
+
+        assertEquals("Contacts", restored.routeId)
+        assertNull(restored.entryInstanceId)
+    }
+
+    @Test
+    fun retainedOwnerRebindsPayloadAndResultToRestoredStack() {
+        val (appGraph, contacts, detail) = testGraph()
+        val owner = LaydrNavEntryStateOwner()
+        val firstCoordinator = LaydrNavStackCoordinator(
+            appGraph = appGraph,
+            backStack = NavBackStack<NavKey>(contacts.key().navKey()),
+        )
+        val firstStore = LaydrNavEntryStateAccess(
+            runtimeBinding = owner.bind(),
+            currentStack = { firstCoordinator.backStack },
+        )
+        val firstStack = LaydrNavStack(
+            coordinator = firstCoordinator,
+            entryProvider = { key -> NavEntry(key = key) {} },
+            entryStore = firstStore,
+        )
+        var completed: String? = null
+        firstStack.navigator.pushForResult<String>(
+            launch = LaydrNavLaunch(
+                destination = TestDestination(detail.key(mapOf("id" to "alpha"))),
+                payload = "challenge",
+            ),
+        ) { result -> completed = result }
+        val savedKey = firstStack.backStack.last() as LaydrNavKey
+        val restoredKey = Json.decodeFromString(
+            LaydrNavKeySerializer,
+            Json.encodeToString(LaydrNavKeySerializer, savedKey),
+        )
+        val restoredCoordinator = LaydrNavStackCoordinator(
+            appGraph = appGraph,
+            backStack = NavBackStack<NavKey>(contacts.key().navKey(), restoredKey),
+        )
+        val restoredStore = LaydrNavEntryStateAccess(
+            runtimeBinding = owner.bind(),
+            currentStack = { restoredCoordinator.backStack },
+        )
+        val restoredStack = LaydrNavStack(
+            coordinator = restoredCoordinator,
+            entryProvider = { key -> NavEntry(key = key) {} },
+            entryStore = restoredStore,
+        )
+
+        assertFailsWith<IllegalStateException> {
+            firstStack.navigator.push(TestDestination(contacts.key()))
+        }
+        val payload = restoredStack.entryStore.lookupPayload(restoredKey)
+        assertTrue(payload is LaydrNavPayloadLookup.Present)
+        assertEquals("challenge", payload.payload)
+        val result = restoredStack.entryStore.lookupResult(restoredKey)
+        assertTrue(result is LaydrNavResultLookup.Present)
+        @Suppress("UNCHECKED_CAST")
+        (result.sink as LaydrNavResultSink<String>).complete("accepted")
+
+        assertEquals("accepted", completed)
+        assertEquals(0, restoredStack.entryStore.resultCount)
+    }
+
     @Test
     fun stackDelegatesToSingleStackController() {
         val (appGraph, contacts, detail) = testGraph()
@@ -93,13 +164,37 @@ class LaydrNavStackTest {
         )
         val secondPayloadKey = stack.backStack.last() as LaydrNavKey
 
+        stack.navigator.push(TestDestination(contacts.key()))
+
         assertEquals(3, stack.backStack.size)
+        assertEquals(secondPayloadKey, stack.backStack.last())
         assertEquals(2, stack.entryStore.payloadCount)
         assertEquals(contacts.key(), firstPayloadKey.toLaydrRouteKey())
         assertEquals(contacts.key(), secondPayloadKey.toLaydrRouteKey())
         assertFalse(firstPayloadKey == secondPayloadKey)
         assertTrue(stack.entryStore.lookupPayload(firstPayloadKey) is LaydrNavPayloadLookup.Present)
         assertTrue(stack.entryStore.lookupPayload(secondPayloadKey) is LaydrNavPayloadLookup.Present)
+    }
+
+    @Test
+    fun stackPayloadFreeLaunchesRemainIndependent() {
+        val (appGraph, contacts) = testGraph()
+        val stack = LaydrNavStack(
+            coordinator = LaydrNavStackCoordinator(
+                appGraph = appGraph,
+                backStack = NavBackStack<NavKey>(contacts.key().navKey()),
+            ),
+            entryProvider = { key -> NavEntry(key = key) {} },
+        )
+
+        stack.navigator.push(LaydrNavLaunch(TestDestination(contacts.key())))
+        stack.navigator.push(LaydrNavLaunch(TestDestination(contacts.key())))
+
+        val launchedKeys = stack.backStack.drop(1).map { it as LaydrNavKey }
+        assertEquals(3, stack.backStack.size)
+        assertTrue(launchedKeys.all { key -> key.entryInstanceId != null })
+        assertFalse(launchedKeys[0] == launchedKeys[1])
+        assertEquals(0, stack.entryStore.payloadCount)
     }
 
     @Test
@@ -170,8 +265,47 @@ class LaydrNavStackTest {
 
         stack.backStack.removeLastOrNull()
 
+        assertTrue(stack.entryStore.lookupPayload(payloadKey) is LaydrNavPayloadLookup.Present)
+        assertEquals(1, stack.entryStore.payloadCount)
+
+        stack.entryStore.prune()
+
         assertTrue(stack.entryStore.lookupPayload(payloadKey) is LaydrNavPayloadLookup.Missing)
         assertEquals(0, stack.entryStore.payloadCount)
+    }
+
+    @Test
+    fun failedMutationPrunesRegistrationAndPreservesPrimaryFailure() {
+        val (appGraph, contacts) = testGraph()
+        val stack = LaydrNavStack(
+            coordinator = LaydrNavStackCoordinator(
+                appGraph = appGraph,
+                backStack = NavBackStack<NavKey>(contacts.key().navKey()),
+            ),
+            entryProvider = { key -> NavEntry(key = key) {} },
+        )
+        var cancellationCount = 0
+        stack.entryStore.keyForLaunchAndResult(
+            key = contacts.key().navKey(),
+            launch = LaydrNavLaunch(TestDestination(contacts.key())),
+            resultType = String::class,
+            onCancel = {
+                cancellationCount++
+                error("cleanup")
+            },
+            onResult = {},
+        )
+
+        val failure = assertFailsWith<IllegalStateException> {
+            stack.entryStore.mutateAndPrune {
+                error("mutation")
+            }
+        }
+
+        assertEquals("mutation", failure.message)
+        assertEquals("cleanup", failure.suppressedExceptions.single().message)
+        assertEquals(1, cancellationCount)
+        assertEquals(0, stack.entryStore.resultCount)
     }
 
     @Test
@@ -366,6 +500,12 @@ class LaydrNavStackTest {
 
         stack.backStack.removeLastOrNull()
 
+        assertTrue(stack.entryStore.lookupResult(resultKey) is LaydrNavResultLookup.Present)
+        assertEquals(0, cancelCount)
+        assertEquals(1, stack.entryStore.resultCount)
+
+        stack.entryStore.prune()
+
         assertTrue(stack.entryStore.lookupResult(resultKey) is LaydrNavResultLookup.Missing)
         assertEquals(1, cancelCount)
         assertEquals(0, stack.entryStore.resultCount)
@@ -458,6 +598,45 @@ class LaydrNavStackTest {
         )
         assertEquals(charlie.toLaydrRouteKey(), (stack.backStack.last() as LaydrNavKey).toLaydrRouteKey())
         assertEquals(1, stack.entryStore.payloadCount)
+    }
+
+    @Test
+    fun adaptiveDestinationPushRetainsIdentifiedDetailState() {
+        val graph = testGraph()
+        val stack = LaydrNavStack(
+            coordinator = LaydrNavStackCoordinator(
+                appGraph = graph.appGraph,
+                backStack = NavBackStack<NavKey>(graph.contacts.key().navKey()),
+                sceneSupport = testSceneSupport(graph.contacts, graph.detail),
+            ),
+            entryProvider = { key -> NavEntry(key = key) {} },
+        )
+        val detailDestination = TestDestination(
+            graph.detail.key(mapOf("id" to "alpha")),
+        )
+        var cancellationCount = 0
+        var completed: String? = null
+        stack.navigator.pushForResult<String>(
+            launch = LaydrNavLaunch(
+                destination = detailDestination,
+                payload = "challenge",
+            ),
+            onCancel = { cancellationCount++ },
+        ) { result -> completed = result }
+        val identifiedDetail = stack.backStack.last() as LaydrNavKey
+
+        stack.navigator.push(detailDestination)
+
+        assertSame(identifiedDetail, stack.backStack.last())
+        assertEquals(1, stack.entryStore.payloadCount)
+        assertEquals(1, stack.entryStore.resultCount)
+        assertEquals(0, cancellationCount)
+        val result = stack.entryStore.lookupResult(identifiedDetail)
+        assertTrue(result is LaydrNavResultLookup.Present)
+        @Suppress("UNCHECKED_CAST")
+        (result.sink as LaydrNavResultSink<String>).complete("accepted")
+        assertEquals("accepted", completed)
+        assertEquals(0, cancellationCount)
     }
 
     @Test

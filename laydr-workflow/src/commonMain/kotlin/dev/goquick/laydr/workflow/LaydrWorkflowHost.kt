@@ -19,6 +19,17 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
+ * Defines who disposes a workflow rendered by [LaydrWorkflowHost].
+ */
+public enum class LaydrWorkflowOwnership {
+    /** The host disposes the workflow when it leaves composition. */
+    Composition,
+
+    /** An external owner, such as an entry-scoped ViewModel, disposes the workflow. */
+    External,
+}
+
+/**
  * Remembers a [LaydrWorkflow].
  *
  * @param key value that recreates the workflow when it changes.
@@ -101,8 +112,8 @@ public fun <Output : Any> laydrWorkflowRenderer(
 /**
  * Renders the current top workflow node with [renderer].
  *
- * This overload starts [workflow] when it enters composition and disposes it
- * when it leaves composition.
+ * This overload starts [workflow] when it enters composition. With the default
+ * [ownership], it also disposes the workflow when it leaves composition.
  *
  * This host does not own app Back or app navigation. App or route-local UI can
  * call [LaydrWorkflow.back] explicitly when it wants workflow-local Back.
@@ -111,14 +122,17 @@ public fun <Output : Any> laydrWorkflowRenderer(
 public fun <Output : Any> LaydrWorkflowHost(
     workflow: LaydrWorkflow<Output>,
     renderer: LaydrWorkflowRenderer<Output>,
+    ownership: LaydrWorkflowOwnership = LaydrWorkflowOwnership.Composition,
 ) {
-    LaunchedEffect(workflow) {
+    LaunchedEffect(workflow, ownership) {
         try {
             workflow.start()
             awaitCancellation()
         } finally {
-            withContext(NonCancellable) {
-                workflow.dispose()
+            if (ownership == LaydrWorkflowOwnership.Composition) {
+                withContext(NonCancellable) {
+                    workflow.dispose()
+                }
             }
         }
     }
@@ -131,16 +145,21 @@ public fun <Output : Any> LaydrWorkflowHost(
  *
  * Output collection is installed before [LaydrWorkflow.start], so outputs
  * emitted from node attach hooks are delivered to [onOutput].
+ *
+ * Set [ownership] to [LaydrWorkflowOwnership.External] only when another
+ * lifecycle owner disposes the workflow. The host then stops collecting while
+ * absent but does not detach or cancel the workflow's nodes.
  */
 @Composable
 public fun <Output : Any> LaydrWorkflowHost(
     workflow: LaydrWorkflow<Output>,
     renderer: LaydrWorkflowRenderer<Output>,
+    ownership: LaydrWorkflowOwnership = LaydrWorkflowOwnership.Composition,
     onOutput: suspend (Output) -> Unit,
 ) {
     val currentOnOutput by rememberUpdatedState(onOutput)
 
-    LaunchedEffect(workflow) {
+    LaunchedEffect(workflow, ownership) {
         val outputsJob = launch(start = CoroutineStart.UNDISPATCHED) {
             workflow.outputs.collect { output ->
                 currentOnOutput(output)
@@ -152,7 +171,9 @@ public fun <Output : Any> LaydrWorkflowHost(
         } finally {
             withContext(NonCancellable) {
                 outputsJob.cancelAndJoin()
-                workflow.dispose()
+                if (ownership == LaydrWorkflowOwnership.Composition) {
+                    workflow.dispose()
+                }
             }
         }
     }

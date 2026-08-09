@@ -116,8 +116,10 @@ stack.navigator.pushForResult<SignInResult>(
 }
 ```
 
-Payloads and results are transient. They are not route identity, DI, retained
-state, workflow outputs, modal policy, or event buses. Use generated route
+Payloads and results are transient. They are not route identity, DI, workflow
+outputs, modal policy, or event buses. KMP apps may retain their explicit
+entry-state owner across configuration recreation, but a new owner after
+process restoration has no payload objects or callbacks. Use generated route
 parameters when the value identifies the route.
 
 ## Workflow Dependencies

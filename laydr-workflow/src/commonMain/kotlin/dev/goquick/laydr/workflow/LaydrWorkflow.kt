@@ -6,12 +6,12 @@ package dev.goquick.laydr.workflow
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 /**
@@ -89,8 +89,7 @@ public open class LaydrWorkflow<Output : Any> public constructor(
 ) {
     private val mutableStackState: MutableStateFlow<LaydrWorkflowStackState<Output>> =
         MutableStateFlow(LaydrWorkflowStackState(listOf(createEntry(rootNode))))
-    private val mutableOutputs: MutableSharedFlow<Output> =
-        MutableSharedFlow(extraBufferCapacity = outputBufferSize)
+    private val mutableOutputs: Channel<Output> = Channel(capacity = outputBufferSize)
     private val outputCollectors:
         MutableList<Pair<LaydrWorkflowNode<*, *, Output>, Job>> = mutableListOf()
 
@@ -101,9 +100,11 @@ public open class LaydrWorkflow<Output : Any> public constructor(
         mutableStackState.asStateFlow()
 
     /**
-     * Hot stream of app-facing workflow outputs.
+     * Single-consumer stream of app-facing workflow outputs. Buffered outputs
+     * remain available while an externally owned workflow is temporarily not
+     * hosted.
      */
-    public val outputs: Flow<Output> = mutableOutputs.asSharedFlow()
+    public val outputs: Flow<Output> = mutableOutputs.receiveAsFlow()
 
     private var started: Boolean = false
 
@@ -241,9 +242,9 @@ public open class LaydrWorkflow<Output : Any> public constructor(
     }
 
     private fun emitWorkflowOutput(output: Output) {
-        if (!mutableOutputs.tryEmit(output)) {
+        if (!mutableOutputs.trySend(output).isSuccess) {
             scope.launch {
-                mutableOutputs.emit(output)
+                mutableOutputs.send(output)
             }
         }
     }

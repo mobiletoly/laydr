@@ -4,6 +4,7 @@
 package dev.goquick.laydr.nav3.androidx
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.key
@@ -12,12 +13,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import dev.goquick.laydr.core.LaydrParameterlessScreenRouteRef
 import dev.goquick.laydr.core.LaydrScreenDestination
 import dev.goquick.laydr.nav.runtime.LaydrNavSectionsEngine
+import dev.goquick.laydr.nav.runtime.LaydrNavEntryStateOwner
 import dev.goquick.laydr.nav.runtime.LaydrNavSelectedSectionState
 
 /**
@@ -60,7 +63,25 @@ internal fun <Data : Any> rememberLaydrNavSectionsCoordinator(
             )
         }
     }
-    val coordinator = remember(sections, initialSection, selectedSectionState, sceneSupport, returnHistory) {
+    val entryStateOwner = remember(sectionControllers) { LaydrNavEntryStateOwner() }
+    val entryStore = remember(sectionControllers, entryStateOwner) {
+        val access = LaydrNavEntryStateAccess(
+            runtimeBinding = entryStateOwner.bind(),
+            currentStack = {
+                sectionControllers.values.flatMap { controller -> controller.backStack }
+            },
+        )
+        Snapshot.withoutReadObservation { access.prune() }
+        access
+    }
+    val coordinator = remember(
+        sections,
+        initialSection,
+        selectedSectionState,
+        sceneSupport,
+        returnHistory,
+        entryStore,
+    ) {
         LaydrNavSectionsCoordinator(
             sections = sections,
             initialSection = initialSection,
@@ -68,7 +89,14 @@ internal fun <Data : Any> rememberLaydrNavSectionsCoordinator(
             sectionControllers = sectionControllers,
             sceneSupport = sceneSupport,
             returnHistory = returnHistory,
+            entryStore = entryStore,
         )
+    }
+    DisposableEffect(entryStore, entryStateOwner) {
+        onDispose {
+            entryStore.close()
+            entryStateOwner.clear()
+        }
     }
     PruneLaydrNavSectionEntryStoreOnBackStackChange(coordinator)
     return coordinator
@@ -81,7 +109,9 @@ private fun <Data : Any> PruneLaydrNavSectionEntryStoreOnBackStackChange(
     LaunchedEffect(coordinator) {
         snapshotFlow { coordinator.backStacks.map { stack -> stack.toList() } }
             .collect {
-                coordinator.entryStore.prune()
+                if (coordinator.entryStore.isActive) {
+                    coordinator.entryStore.prune()
+                }
             }
     }
 }
@@ -93,14 +123,17 @@ internal class LaydrNavSectionsCoordinator<Data : Any> internal constructor(
     sectionControllers: Map<LaydrNavSection<Data>, LaydrNavStackCoordinator>,
     internal val sceneSupport: LaydrNavSceneSupport = LaydrNavSceneSupport.None,
     internal val returnHistory: SnapshotStateList<LaydrNavReturnEntry> = mutableStateListOf(),
+    internal val entryStore: LaydrNavEntryStateAccess = LaydrNavEntryStateAccess(
+        runtimeBinding = LaydrNavEntryStateOwner().bind(),
+        currentStack = {
+            sectionControllers.values.flatMap { controller -> controller.backStack }
+        },
+    ),
 ) : LaydrNavSectionsNavigator {
     private val sectionControllers: Map<LaydrNavSection<Data>, LaydrNavStackCoordinator> =
         sectionControllers.toMap()
 
     private val selectedSectionState: MutableState<String> = selectedSectionState
-    internal val entryStore: LaydrNavEntryStore = LaydrNavEntryStore {
-        this.sectionControllers.values.flatMap { controller -> controller.backStack }
-    }
     private val runtimeEngine = LaydrNavSectionsEngine(
         sections = sections.items,
         initialSection = initialSection,
@@ -121,7 +154,7 @@ internal class LaydrNavSectionsCoordinator<Data : Any> internal constructor(
         sectionForEntryKey = { key -> sections.sectionFor(key.toRouteKey()) },
         controllerFor = { section -> controllerFor(section).engine },
         returnHistory = returnHistory,
-        entryStore = entryStore.runtimeStore,
+        entryStateBinding = entryStore.runtimeBinding,
     )
 
     val selectedSection: LaydrNavSection<Data>
@@ -203,7 +236,7 @@ internal class LaydrNavSectionsCoordinator<Data : Any> internal constructor(
         runtimeEngine.pushExternalTarget(input).toAndroidx()
 
     override fun replace(destination: LaydrScreenDestination) {
-        replace(LaydrNavLaunch(destination = destination))
+        runtimeEngine.replace(destination)
     }
 
     override fun replace(launch: LaydrNavLaunch) {
@@ -211,7 +244,7 @@ internal class LaydrNavSectionsCoordinator<Data : Any> internal constructor(
     }
 
     override fun replaceWithReturn(destination: LaydrScreenDestination) {
-        replaceWithReturn(LaydrNavLaunch(destination = destination))
+        runtimeEngine.replaceWithReturn(destination)
     }
 
     override fun replaceWithReturn(launch: LaydrNavLaunch) {

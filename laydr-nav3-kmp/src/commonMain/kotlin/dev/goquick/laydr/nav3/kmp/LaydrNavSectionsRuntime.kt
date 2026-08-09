@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.savedstate.serialization.SavedStateConfiguration
 import dev.goquick.laydr.compose.LaydrComposeRouteDefinitions
+import dev.goquick.laydr.nav.runtime.LaydrNavEntryStateOwner
 
 /**
  * Remembers complete Laydr Nav section runtime wiring.
@@ -22,6 +23,9 @@ import dev.goquick.laydr.compose.LaydrComposeRouteDefinitions
  * @param entryMetadata app-owned Nav3 metadata for each resolved Laydr entry.
  * @param initialSection optional initial selected section.
  * @param savedStateConfiguration saved-state configuration for Laydr keys.
+ * @param entryStateOwner optional app-retained transient entry-state owner.
+ * One binding covers every declared section stack. Rebinding invalidates old
+ * section wrappers and navigators; reacquire them from the current composition.
  * @param notFoundContent content rendered for invalid Nav3 keys.
  */
 @Composable
@@ -33,6 +37,7 @@ public fun <Data : Any> rememberLaydrNavSections(
     initialSection: LaydrNavSection<Data>? = null,
     savedStateConfiguration: SavedStateConfiguration =
         laydrNavSavedStateConfiguration(),
+    entryStateOwner: LaydrNavEntryStateOwner? = null,
     notFoundContent: @Composable (notFound: LaydrNavNotFound) -> Unit,
 ): LaydrNavSections<Data> {
     val sectionSet = rememberLaydrNavSectionSet(
@@ -44,6 +49,7 @@ public fun <Data : Any> rememberLaydrNavSections(
         initialSection = initialSection ?: sectionSet.items.first(),
         sceneSupport = sceneSupport,
         savedStateConfiguration = savedStateConfiguration,
+        entryStateOwner = entryStateOwner,
     )
     val entryProvider = laydrNavSectionEntryProvider(
         routeDefinitions = routeDefinitions,

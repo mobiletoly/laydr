@@ -47,7 +47,7 @@ public class LaydrNavKey internal constructor(
      */
     public val routeId: String,
     parameters: Map<String, String> = emptyMap(),
-    internal val entryToken: String? = null,
+    internal val entryInstanceId: String? = null,
     internal val entryMetadata: LaydrNavEntryMetadata = LaydrNavEntryMetadata.Empty,
 ) : NavKey {
     internal constructor(
@@ -55,7 +55,7 @@ public class LaydrNavKey internal constructor(
     ) : this(
         routeId = entryKey.routeId,
         parameters = entryKey.parameters,
-        entryToken = entryKey.entryToken,
+        entryInstanceId = entryKey.entryInstanceId,
         entryMetadata = entryKey.entryMetadata,
     )
 
@@ -65,7 +65,7 @@ public class LaydrNavKey internal constructor(
     ) : this(
         routeId = routeId,
         parameters = parameters,
-        entryToken = null,
+        entryInstanceId = null,
         entryMetadata = LaydrNavEntryMetadata.Empty,
     )
 
@@ -76,7 +76,7 @@ public class LaydrNavKey internal constructor(
     internal val entryKey: LaydrNavEntryKey = LaydrNavEntryKey(
         routeId = routeId,
         parameters = this.parameters,
-        entryToken = entryToken,
+        entryInstanceId = entryInstanceId,
         entryMetadata = entryMetadata,
     )
 
@@ -89,30 +89,31 @@ public class LaydrNavKey internal constructor(
             other is LaydrNavKey &&
             routeId == other.routeId &&
             parameters == other.parameters &&
-            entryToken == other.entryToken &&
+            entryInstanceId == other.entryInstanceId &&
             entryMetadata.values == other.entryMetadata.values
 
     override fun hashCode(): Int {
         var result = routeId.hashCode()
         result = 31 * result + parameters.hashCode()
-        result = 31 * result + (entryToken?.hashCode() ?: 0)
+        result = 31 * result + (entryInstanceId?.hashCode() ?: 0)
         result = 31 * result + entryMetadata.values.hashCode()
         return result
     }
 
     override fun toString(): String =
-        if (entryToken == null && entryMetadata.values.isEmpty()) {
+        if (entryInstanceId == null && entryMetadata.values.isEmpty()) {
             "LaydrNavKey(routeId=$routeId, parameters=$parameters)"
         } else {
-            "LaydrNavKey(routeId=$routeId, parameters=$parameters, entryToken=$entryToken, entryMetadata=${entryMetadata.values})"
+            "LaydrNavKey(routeId=$routeId, parameters=$parameters, entryInstanceId=$entryInstanceId, entryMetadata=${entryMetadata.values})"
         }
 }
 
 /**
  * Serializer for [LaydrNavKey].
  *
- * It preserves the public serial shape while letting [LaydrNavKey] copy the
- * caller-provided parameter map during construction.
+ * It preserves route identity plus the optional opaque entry-instance id used
+ * to correlate transient state after configuration recreation. Payloads,
+ * callbacks, and entry metadata are never serialized.
  */
 public object LaydrNavKeySerializer : KSerializer<LaydrNavKey> {
     private val parametersSerializer = MapSerializer(String.serializer(), String.serializer())
@@ -122,6 +123,7 @@ public object LaydrNavKeySerializer : KSerializer<LaydrNavKey> {
     ) {
         element<String>("routeId")
         element<Map<String, String>>("parameters", isOptional = true)
+        element<String?>("entryInstanceId", isOptional = true)
     }
 
     override fun serialize(encoder: Encoder, value: LaydrNavKey): Unit =
@@ -133,11 +135,15 @@ public object LaydrNavKeySerializer : KSerializer<LaydrNavKey> {
                 serializer = parametersSerializer,
                 value = value.parameters,
             )
+            value.entryInstanceId?.let { entryInstanceId ->
+                encodeStringElement(descriptor, index = 2, value = entryInstanceId)
+            }
         }
 
     override fun deserialize(decoder: Decoder): LaydrNavKey {
         var routeId: String? = null
         var parameters: Map<String, String> = emptyMap()
+        var entryInstanceId: String? = null
 
         decoder.decodeStructure(descriptor) {
             while (true) {
@@ -149,6 +155,7 @@ public object LaydrNavKeySerializer : KSerializer<LaydrNavKey> {
                         index = 1,
                         deserializer = parametersSerializer,
                     )
+                    2 -> entryInstanceId = decodeStringElement(descriptor, index = 2)
                     else -> throw SerializationException("Unexpected LaydrNavKey field index: $index")
                 }
             }
@@ -157,6 +164,7 @@ public object LaydrNavKeySerializer : KSerializer<LaydrNavKey> {
         return LaydrNavKey(
             routeId = routeId ?: throw SerializationException("Missing LaydrNavKey.routeId"),
             parameters = parameters,
+            entryInstanceId = entryInstanceId,
         )
     }
 }
@@ -183,8 +191,8 @@ public fun LaydrRouteKey.navKey(): LaydrNavKey =
 public fun LaydrScreenDestination.navKey(): LaydrNavKey =
     routeKey.navKey()
 
-internal fun LaydrNavKey.withEntryToken(entryToken: String): LaydrNavKey =
-    LaydrNavKey(entryKey = entryKey.withEntryToken(entryToken))
+internal fun LaydrNavKey.withEntryInstanceId(entryInstanceId: String): LaydrNavKey =
+    LaydrNavKey(entryKey = entryKey.withEntryInstanceId(entryInstanceId))
 
 internal fun LaydrNavKey.withEntryMetadata(entryMetadata: LaydrNavEntryMetadata): LaydrNavKey =
     LaydrNavKey(entryKey = entryKey.withEntryMetadata(entryMetadata))

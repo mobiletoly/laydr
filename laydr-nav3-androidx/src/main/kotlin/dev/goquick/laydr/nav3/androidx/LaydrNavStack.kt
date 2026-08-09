@@ -4,9 +4,11 @@
 package dev.goquick.laydr.nav3.androidx
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.NavKey
@@ -15,6 +17,7 @@ import dev.goquick.laydr.compose.LaydrComposeRouteDefinitions
 import dev.goquick.laydr.core.LaydrAppGraph
 import dev.goquick.laydr.core.LaydrScreenDestination
 import dev.goquick.laydr.nav.runtime.LaydrNavEntryKey
+import dev.goquick.laydr.nav.runtime.LaydrNavEntryStateOwner
 import dev.goquick.laydr.nav.runtime.LaydrNavKeyAdapter
 import dev.goquick.laydr.nav.runtime.LaydrNavStackEngine
 import kotlin.reflect.KClass
@@ -93,9 +96,10 @@ public inline fun <reified Result : Any> LaydrNavStackNavigator.pushForResult(
  *
  * The created stack is an AndroidX [NavBackStack] remembered with
  * `rememberNavBackStack`, so Laydr route identity restores across Android
- * process death. Restored entries contain route id and route parameters only;
- * payloads, route-result callbacks, entry tokens, and entry metadata are
- * transient.
+ * process death. Entries created from [LaydrNavLaunch] contain route id, route
+ * parameters, and an opaque entry-instance id. Payloads,
+ * route-result callbacks, and entry metadata remain transient; this adapter
+ * does not expose KMP retained-owner integration.
  */
 @Composable
 public fun rememberLaydrNavStack(
@@ -144,10 +148,22 @@ public fun rememberLaydrNavStack(
             sceneSupport = sceneSupport,
         )
     }
-    val entryStore = remember(coordinator) {
-        LaydrNavEntryStore { coordinator.backStack }
+    val entryStateOwner = remember(coordinator) { LaydrNavEntryStateOwner() }
+    val entryStore = remember(coordinator, entryStateOwner) {
+        val access = LaydrNavEntryStateAccess(
+            runtimeBinding = entryStateOwner.bind(),
+            currentStack = { coordinator.backStack },
+        )
+        Snapshot.withoutReadObservation { access.prune() }
+        access
     }
-    PruneLaydrNavEntryStoreOnBackStackChange(
+    DisposableEffect(entryStore, entryStateOwner) {
+        onDispose {
+            entryStore.close()
+            entryStateOwner.clear()
+        }
+    }
+    PruneLaydrNavEntryStateOnBackStackChange(
         backStack = coordinator.backStack,
         entryStore = entryStore,
     )
@@ -168,14 +184,16 @@ public fun rememberLaydrNavStack(
 }
 
 @Composable
-private fun PruneLaydrNavEntryStoreOnBackStackChange(
+private fun PruneLaydrNavEntryStateOnBackStackChange(
     backStack: NavBackStack<NavKey>,
-    entryStore: LaydrNavEntryStore,
+    entryStore: LaydrNavEntryStateAccess,
 ) {
     LaunchedEffect(backStack, entryStore) {
         snapshotFlow { backStack.toList() }
             .collect {
-                entryStore.prune()
+                if (entryStore.isActive) {
+                    entryStore.prune()
+                }
             }
     }
 }
@@ -207,9 +225,10 @@ public class LaydrNavStack internal constructor(
      * AndroidX Nav3 entry provider backed by generated route-owned definitions.
      */
     public val entryProvider: (NavKey) -> NavEntry<NavKey>,
-    internal val entryStore: LaydrNavEntryStore = LaydrNavEntryStore {
-        coordinator.backStack
-    },
+    internal val entryStore: LaydrNavEntryStateAccess = LaydrNavEntryStateAccess(
+        runtimeBinding = LaydrNavEntryStateOwner().bind(),
+        currentStack = { coordinator.backStack },
+    ),
 ) {
     /**
      * Mutable AndroidX Nav3 back stack owned by the app or by this Laydr stack.
@@ -239,79 +258,89 @@ public class LaydrNavStack internal constructor(
      * Replaces the trailing Laydr suffix with [destination].
      */
     public fun reset(destination: LaydrScreenDestination) {
-        reset(LaydrNavLaunch(destination = destination))
+        entryStore.requireActive()
+        coordinator.resetKey(coordinator.validatedKey(destination))
+        entryStore.prune()
     }
 
     /**
      * Replaces the trailing Laydr suffix with [launch].
      */
     public fun reset(launch: LaydrNavLaunch) {
+        entryStore.requireActive()
         val key = entryStore.keyForLaunch(
             key = coordinator.validatedKey(launch.destination),
             launch = launch,
         )
-        try {
+        entryStore.mutateAndPrune {
             coordinator.resetKey(key)
-        } finally {
-            entryStore.prune()
         }
     }
 
     /**
      * Pushes the screen route represented by URL-like [input].
      */
-    public fun pushExternalTarget(input: String): LaydrNavExternalTargetResult =
-        coordinator.pushExternalTarget(input).also {
+    public fun pushExternalTarget(input: String): LaydrNavExternalTargetResult {
+        entryStore.requireActive()
+        return coordinator.pushExternalTarget(input).also {
             entryStore.prune()
         }
+    }
 
     /**
      * Replaces the top Laydr entry with the screen route represented by
      * URL-like [input].
      */
-    public fun replaceExternalTarget(input: String): LaydrNavExternalTargetResult =
-        coordinator.replaceExternalTarget(input).also {
+    public fun replaceExternalTarget(input: String): LaydrNavExternalTargetResult {
+        entryStore.requireActive()
+        return coordinator.replaceExternalTarget(input).also {
             entryStore.prune()
         }
+    }
 
     private inner class StackNavigator : LaydrNavStackNavigator {
         override fun push(destination: LaydrScreenDestination) {
+            entryStore.requireActive()
             coordinator.pushKey(coordinator.validatedKey(destination))
             entryStore.prune()
         }
 
         override fun push(launch: LaydrNavLaunch) {
+            entryStore.requireActive()
             val key = entryStore.keyForLaunch(
                 key = coordinator.validatedKey(launch.destination),
                 launch = launch,
             )
-            coordinator.pushNewEntryKey(key)
-            entryStore.prune()
+            entryStore.mutateAndPrune {
+                coordinator.pushNewEntryKey(key)
+            }
         }
 
         override fun replace(destination: LaydrScreenDestination) {
+            entryStore.requireActive()
             coordinator.requireCanReplaceCurrentEntry()
             coordinator.replaceKey(coordinator.validatedKey(destination))
             entryStore.prune()
         }
 
         override fun replace(launch: LaydrNavLaunch) {
+            entryStore.requireActive()
             coordinator.requireCanReplaceCurrentEntry()
             val key = entryStore.keyForLaunch(
                 key = coordinator.validatedKey(launch.destination),
                 launch = launch,
             )
-            try {
+            entryStore.mutateAndPrune {
                 coordinator.replaceKey(key)
-            } finally {
-                entryStore.prune()
             }
         }
 
-        override fun back(): Boolean =
-            coordinator.popLaydrEntry().also {
+        override fun back(): Boolean {
+            entryStore.requireActive()
+            return coordinator.popLaydrEntry().also {
                 entryStore.prune()
             }
+        }
 
         override fun <Result : Any> pushForResult(
             launch: LaydrNavLaunch,
@@ -319,6 +348,7 @@ public class LaydrNavStack internal constructor(
             resultType: KClass<Result>,
             onResult: (Result) -> Unit,
         ) {
+            entryStore.requireActive()
             val key = entryStore.keyForLaunchAndResult(
                 key = coordinator.validatedKey(launch.destination),
                 launch = launch,
@@ -329,8 +359,9 @@ public class LaydrNavStack internal constructor(
                     onResult(result as Result)
                 },
             )
-            coordinator.pushNewEntryKey(key)
-            entryStore.prune()
+            entryStore.mutateAndPrune {
+                coordinator.pushNewEntryKey(key)
+            }
         }
     }
 }

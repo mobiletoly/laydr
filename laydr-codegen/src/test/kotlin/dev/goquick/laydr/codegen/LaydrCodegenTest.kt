@@ -499,6 +499,11 @@ class LaydrCodegenTest {
         assertSourceContains(source, "initialDestination: LaydrScreenDestination")
         assertSourceContains(source, "backStack: NavBackStack<NavKey>")
         assertSourceContains(source, "savedStateConfiguration: SavedStateConfiguration = laydrNavSavedStateConfiguration()")
+        assertSourceContains(source, "entryStateOwner: LaydrNavEntryStateOwner? = null")
+        assertSourceContains(source, "entryStateOwner = entryStateOwner")
+        assertSourceContains(source, "@param entryStateOwner optional app-retained transient entry-state owner.")
+        assertSourceContains(source, "reacquire the returned stack, sections, and navigators")
+        assertSourceContains(source, "When null, transient entry state is owned by this composition.")
         assertSourceContains(source, "entryMetadata: LaydrNavEntryMetadataProvider = LaydrNavEntryMetadataProvider { LaydrNavEntryMetadata.Empty }")
         assertSourceContains(source, "): LaydrNavStack = rememberLaydrNavStack(routeDefinitions = LaydrComposeRoutes.definitions")
         assertSourceContains(source, "backStack = backStack")
@@ -546,6 +551,9 @@ class LaydrCodegenTest {
         assertSourceDoesNotContain(source, "SnapshotStateList")
         assertSourceDoesNotContain(source, "SavedStateConfiguration")
         assertSourceDoesNotContain(source, "laydrNavSavedStateConfiguration")
+        assertSourceDoesNotContain(source, "LaydrNavEntryStateOwner")
+        assertSourceDoesNotContain(source, "entryStateOwner")
+        assertSourceDoesNotContain(source, "app-retained transient entry-state owner")
     }
 
     @Test

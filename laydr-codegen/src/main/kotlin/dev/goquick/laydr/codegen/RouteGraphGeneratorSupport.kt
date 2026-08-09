@@ -38,6 +38,8 @@ private val navBackStackClass = ClassName("androidx.navigation3.runtime", "NavBa
 internal val navKeyClass = ClassName("androidx.navigation3.runtime", "NavKey")
 internal val savedStateConfigurationClass =
     ClassName("androidx.savedstate.serialization", "SavedStateConfiguration")
+internal val laydrNavEntryStateOwnerClass =
+    ClassName("dev.goquick.laydr.nav.runtime", "LaydrNavEntryStateOwner")
 internal val jvmInlineClass = ClassName("kotlin.jvm", "JvmInline")
 internal val composableAnnotation = AnnotationSpec.builder(
     ClassName("androidx.compose.runtime", "Composable"),
@@ -60,11 +62,13 @@ private val kmpNav3HelperSymbols = nav3HelperSymbols(
         "dev.goquick.laydr.nav3.kmp",
         "laydrNavSavedStateConfiguration",
     ),
+    entryStateOwnerClass = laydrNavEntryStateOwnerClass,
 )
 private val androidxNav3HelperSymbols = nav3HelperSymbols(
     displayName = "AndroidX Nav3",
     packageName = "dev.goquick.laydr.nav3.androidx",
     savedStateConfigurationMember = null,
+    entryStateOwnerClass = null,
 )
 
 internal const val rootObjectName = "LaydrRoutes"
@@ -120,6 +124,7 @@ internal data class Nav3HelperSymbols(
     val rememberLaydrNavSectionsMember: MemberName,
     val rememberLaydrNavStackMember: MemberName,
     val savedStateConfigurationMember: MemberName?,
+    val entryStateOwnerClass: ClassName?,
 )
 
 internal val LaydrNav3HelperTarget.displayName: String
@@ -138,6 +143,7 @@ private fun nav3HelperSymbols(
     displayName: String,
     packageName: String,
     savedStateConfigurationMember: MemberName?,
+    entryStateOwnerClass: ClassName?,
 ): Nav3HelperSymbols =
     Nav3HelperSymbols(
         displayName = displayName,
@@ -155,6 +161,7 @@ private fun nav3HelperSymbols(
         rememberLaydrNavSectionsMember = MemberName(packageName, "rememberLaydrNavSections"),
         rememberLaydrNavStackMember = MemberName(packageName, "rememberLaydrNavStack"),
         savedStateConfigurationMember = savedStateConfigurationMember,
+        entryStateOwnerClass = entryStateOwnerClass,
     )
 
 internal data class GeneratedDynamicParameter(

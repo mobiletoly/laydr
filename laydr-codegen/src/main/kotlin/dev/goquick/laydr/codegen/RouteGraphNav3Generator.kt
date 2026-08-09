@@ -86,11 +86,24 @@ private fun navRememberSectionsFunction(symbols: Nav3HelperSymbols): FunSpec {
                 .build(),
         )
     }
+    if (symbols.entryStateOwnerClass != null) {
+        function.addParameter(
+            ParameterSpec.builder("entryStateOwner", symbols.entryStateOwnerClass.copy(nullable = true))
+                .defaultValue("null")
+                .build(),
+        )
+        function.addEntryStateOwnerKdoc()
+    }
 
     val savedStateArgument = if (symbols.savedStateConfigurationMember == null) {
         ""
     } else {
         "savedStateConfiguration = savedStateConfiguration, "
+    }
+    val entryStateOwnerArgument = if (symbols.entryStateOwnerClass == null) {
+        ""
+    } else {
+        "entryStateOwner = entryStateOwner, "
     }
 
     return function
@@ -102,6 +115,7 @@ private fun navRememberSectionsFunction(symbols: Nav3HelperSymbols): FunSpec {
                 "entryMetadata = entryMetadata, " +
                 "initialSection = initialSection, " +
                 savedStateArgument +
+                entryStateOwnerArgument +
                 "notFoundContent = notFoundContent" +
                 ")",
             symbols.rememberLaydrNavSectionsMember,
@@ -149,11 +163,24 @@ private fun navRememberStackInitialDestinationFunction(symbols: Nav3HelperSymbol
                 .build(),
         )
     }
+    if (symbols.entryStateOwnerClass != null) {
+        function.addParameter(
+            ParameterSpec.builder("entryStateOwner", symbols.entryStateOwnerClass.copy(nullable = true))
+                .defaultValue("null")
+                .build(),
+        )
+        function.addEntryStateOwnerKdoc()
+    }
 
     val savedStateArgument = if (symbols.savedStateConfigurationMember == null) {
         ""
     } else {
         "savedStateConfiguration = savedStateConfiguration, "
+    }
+    val entryStateOwnerArgument = if (symbols.entryStateOwnerClass == null) {
+        ""
+    } else {
+        "entryStateOwner = entryStateOwner, "
     }
 
     return function
@@ -164,6 +191,7 @@ private fun navRememberStackInitialDestinationFunction(symbols: Nav3HelperSymbol
                 "sceneSupport = sceneSupport, " +
                 "entryMetadata = entryMetadata, " +
                 savedStateArgument +
+                entryStateOwnerArgument +
                 "notFoundContent = notFoundContent" +
                 ")",
             symbols.rememberLaydrNavStackMember,
@@ -182,7 +210,7 @@ private fun navRememberStackBackStackFunction(symbols: Nav3HelperSymbols): FunSp
     ).copy(annotations = listOf(composableAnnotation))
     val backStackType = symbols.backStackClass.parameterizedBy(navKeyClass)
 
-    return FunSpec.builder("rememberStack")
+    val function = FunSpec.builder("rememberStack")
         .addModifiers(KModifier.PUBLIC)
         .addAnnotation(composableAnnotation)
         .addKdoc("Remembers Laydr management for an app-owned %L stack.\n", symbols.displayName)
@@ -204,12 +232,30 @@ private fun navRememberStackBackStackFunction(symbols: Nav3HelperSymbols): FunSp
         )
         .addParameter("notFoundContent", notFoundContentType)
         .returns(symbols.laydrNavStackClass)
+
+    if (symbols.entryStateOwnerClass != null) {
+        function.addParameter(
+            ParameterSpec.builder("entryStateOwner", symbols.entryStateOwnerClass.copy(nullable = true))
+                .defaultValue("null")
+                .build(),
+        )
+        function.addEntryStateOwnerKdoc()
+    }
+
+    val entryStateOwnerArgument = if (symbols.entryStateOwnerClass == null) {
+        ""
+    } else {
+        "entryStateOwner = entryStateOwner, "
+    }
+
+    return function
         .addStatement(
             "return %M(" +
                 "routeDefinitions = %L.%L, " +
                 "backStack = backStack, " +
                 "sceneSupport = sceneSupport, " +
                 "entryMetadata = entryMetadata, " +
+                entryStateOwnerArgument +
                 "notFoundContent = notFoundContent" +
                 ")",
             symbols.rememberLaydrNavStackMember,
@@ -217,6 +263,15 @@ private fun navRememberStackBackStackFunction(symbols: Nav3HelperSymbols): FunSp
             definitionsPropertyName,
         )
         .build()
+}
+
+private fun FunSpec.Builder.addEntryStateOwnerKdoc() {
+    addKdoc(
+        "\n@param entryStateOwner optional app-retained transient entry-state owner. " +
+            "Pass the same owner when rebinding a restored stack after configuration recreation, " +
+            "then reacquire the returned stack, sections, and navigators from the new composition. " +
+            "When null, transient entry state is owned by this composition.\n",
+    )
 }
 
 private fun TypeSpec.Builder.addNavRouteObjects(

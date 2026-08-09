@@ -51,6 +51,8 @@ parsers, screen registries, layout wrappers, and tab setup.
 - build-time route checks through the Gradle plugin
 - app-owned Compose UI, state, DI, ViewModels, repositories, chrome, and
   platform policy
+- optional app-owned KMP entry-state retention across Android configuration
+  recreation, without serializing payloads or callbacks
 
 ## Before And After Laydr
 

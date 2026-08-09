@@ -377,7 +377,8 @@ navigation. See [Advanced Navigation Topics](navigation/advanced.md).
 Symptom: `requireLaydrNavPayload<T>()` throws, or
 `laydrNavPayloadOrNull<T>()` returns `null`.
 
-Cause: the current entry was not launched with a payload, was process-restored,
+Cause: the current entry was not launched with a payload, was process-restored
+with a new owner, was recreated without passing the same retained KMP owner,
 was launched through a destination-only API, or was launched with a payload
 whose runtime type is not assignable to `T`.
 
@@ -393,20 +394,41 @@ val payload = laydrNavPayloadOrNull<SignInPayload>()
 The recovery behavior is app policy.
 See [Payloads And Results](navigation/payloads-results.md).
 
+For KMP configuration recreation, retain `LaydrNavEntryStateOwner` in a
+ViewModel and pass that same owner to the recreated `rememberStack` or
+`rememberSections` call. Do not retain the returned stack, sections object,
+navigator, or entry provider.
+
 ## A Nav3 Result Sink Is Missing Or Has The Wrong Type
 
 Symptom: `requireLaydrNavResultSink<T>()` throws, or
 `laydrNavResultSinkOrNull<T>()` returns `null`.
 
 Cause: the current entry was not launched with `pushForResult<T>(...)`, was
-process-restored, used destination-only navigation, or was launched for a
-different result type.
+process-restored with a new owner, was recreated without the same retained KMP
+owner, used destination-only navigation, or was launched for a different
+result type.
 
 Fix: launch with `pushForResult<T>(LaydrNavLaunch(...))`.
 
 Use the same result type in the route-local sink. Completing a result does not
 pop the route; call app-owned navigation separately when the route should
 close. See [Payloads And Results](navigation/payloads-results.md).
+
+## A Laydr Nav Binding Is Stale
+
+Symptom: navigation throws a message telling you to reacquire the stack,
+sections, or navigator from the current composition.
+
+Cause: the application retained a composition-created wrapper or navigator.
+Rebinding the same `LaydrNavEntryStateOwner` after configuration recreation
+intentionally invalidates the previous binding so it cannot mutate the old
+back stack.
+
+Fix: retain only `LaydrNavEntryStateOwner`. Read the current stack, sections,
+navigator, and entry provider from the current composition and pass callbacks
+down from there. Also avoid capturing the destroyed Activity or composition in
+owner-retained payloads and result callbacks.
 
 ## Workflow Setup Fails
 

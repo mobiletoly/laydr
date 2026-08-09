@@ -65,9 +65,11 @@ AndroidX apps use the same Laydr route model as KMP apps:
 
 The generated helpers create AndroidX `NavBackStack` state with
 `rememberNavBackStack(...)`, so destination stack identity is restored across
-configuration changes and Android process death. Restored Laydr entries contain
-route id and route parameters only. Payloads, result callbacks, entry tokens,
-and entry metadata remain transient entry-scoped data.
+configuration changes and Android process death. Every entry created from
+`LaydrNavLaunch` contains route id, route parameters, and an opaque
+entry-instance id, including payload-free launches. Payloads, result callbacks,
+and entry metadata remain transient entry-scoped data. The AndroidX adapter does not currently expose
+KMP retained-owner integration.
 
 The app still owns Android UI policy, retained state, ViewModels, deep links,
 themes, auth, and chrome. AndroidX adaptive scene support is not part of this

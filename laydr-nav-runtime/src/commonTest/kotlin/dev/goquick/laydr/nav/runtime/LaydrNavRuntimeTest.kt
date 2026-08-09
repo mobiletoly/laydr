@@ -8,6 +8,7 @@ import dev.goquick.laydr.core.LaydrRouteSegment
 import dev.goquick.laydr.core.LaydrScreenDestination
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
@@ -49,14 +50,14 @@ class LaydrNavRuntimeTest {
     }
 
     @Test
-    fun entryStoreScopesPayloadsAndResultsToActiveEntryTokens() {
+    fun entryStateOwnerScopesPayloadsAndResultsToActiveEntryIds() {
         val active = mutableListOf<LaydrNavEntryKey>()
-        val store = LaydrNavEntryStore { active }
+        val binding = LaydrNavEntryStateOwner().bind()
         val base = LaydrNavEntryKey("Contacts")
         var cancelled = 0
         var completed: String? = null
 
-        val key = store.keyForLaunchAndResult(
+        val key = binding.keyForLaunchAndResult(
             key = base,
             launch = LaydrNavLaunch(
                 destination = TestDestination(base.toRouteKey()),
@@ -68,17 +69,17 @@ class LaydrNavRuntimeTest {
         )
         active += key
 
-        assertIs<LaydrNavPayloadLookup.Present>(store.lookupPayload(key))
-        val sink = assertIs<LaydrNavResultLookup.Present>(store.lookupResult(key)).sink
+        assertIs<LaydrNavPayloadLookup.Present>(binding.lookupPayload(key))
+        val sink = assertIs<LaydrNavResultLookup.Present>(binding.lookupResult(key)).sink
         @Suppress("UNCHECKED_CAST")
         (sink as LaydrNavResultSink<String>).complete("done")
         assertEquals("done", completed)
         assertEquals(0, cancelled)
 
         active.clear()
-        store.prune()
-        assertEquals(0, store.payloadCount)
-        assertEquals(0, store.resultCount)
+        binding.prune(active)
+        assertEquals(0, binding.payloadCount)
+        assertEquals(0, binding.resultCount)
     }
 
     @Test
@@ -107,6 +108,70 @@ class LaydrNavRuntimeTest {
     }
 
     @Test
+    fun destinationOnlyPushPreservesIdentifiedCurrentRouteEntry() {
+        val graph = testGraph()
+        val identified = LaydrNavEntryKey(
+            routeId = "Contacts",
+            entryInstanceId = "launch-instance",
+        )
+        val stack = mutableListOf<TestKey>(TestLaydrKey(identified))
+        val engine = LaydrNavStackEngine(
+            appGraph = graph.appGraph,
+            backStack = stack,
+            keyAdapter = TestKeyAdapter,
+        )
+
+        engine.pushKey(LaydrNavEntryKey("Contacts"))
+
+        assertEquals(listOf<TestKey>(TestLaydrKey(identified)), stack)
+    }
+
+    @Test
+    fun adaptiveDestinationPushPreservesIdentifiedDetailAndTruncatesNestedEntries() {
+        val graph = testGraph()
+        val list = LaydrNavEntryKey("Contacts")
+        val identifiedDetail = LaydrNavEntryKey(
+            routeId = "Contacts.ById",
+            parameters = mapOf("id" to "alpha"),
+            entryInstanceId = "detail-launch-instance",
+        )
+        val nested = LaydrNavEntryKey("Profile")
+        val stack = mutableListOf<TestKey>(
+            TestLaydrKey(list),
+            TestLaydrKey(identifiedDetail),
+            TestLaydrKey(nested),
+        )
+        val sceneSupport = laydrNavSceneSupport(
+            listDetailScenes = listOf(
+                LaydrNavListDetailSceneSupport(
+                    listRoute = graph.contacts,
+                    detailRoute = graph.detail,
+                    listMetadata = emptyMap(),
+                    detailMetadata = emptyMap(),
+                ),
+            ),
+        )
+        val engine = LaydrNavStackEngine(
+            appGraph = graph.appGraph,
+            backStack = stack,
+            keyAdapter = TestKeyAdapter,
+            sceneSupport = sceneSupport,
+        )
+
+        engine.pushKey(
+            LaydrNavEntryKey(
+                routeId = "Contacts.ById",
+                parameters = mapOf("id" to "alpha"),
+            ),
+        )
+
+        assertEquals(
+            listOf<TestKey>(TestLaydrKey(list), TestLaydrKey(identifiedDetail)),
+            stack,
+        )
+    }
+
+    @Test
     fun sectionEngineRestoresReturnHistoryAcrossSectionStacks() {
         val graph = testGraph()
         val contacts = Section(
@@ -123,9 +188,7 @@ class LaydrNavRuntimeTest {
             profile to stackEngine(graph, profile.root),
         )
         val history = mutableListOf<LaydrNavReturnEntry>()
-        val store = LaydrNavEntryStore {
-            controllers.values.flatMap { engine -> engine.allEntryKeys().orEmpty() }
-        }
+        val binding = LaydrNavEntryStateOwner().bind()
         val engine = LaydrNavSectionsEngine(
             sections = listOf(contacts, profile),
             initialSection = profile,
@@ -149,7 +212,7 @@ class LaydrNavRuntimeTest {
             },
             controllerFor = { section -> controllers.getValue(section) },
             returnHistory = history,
-            entryStore = store,
+            entryStateBinding = binding,
         )
 
         engine.pushWithReturn(
@@ -194,9 +257,7 @@ class LaydrNavRuntimeTest {
             targetKey = LaydrNavEntryKey("Contacts"),
         )
         val history = mutableListOf(historyEntry)
-        val store = LaydrNavEntryStore {
-            controllers.values.flatMap { engine -> engine.allEntryKeys().orEmpty() }
-        }
+        val binding = LaydrNavEntryStateOwner().bind()
         val engine = LaydrNavSectionsEngine(
             sections = listOf(contacts, profile),
             initialSection = profile,
@@ -220,7 +281,7 @@ class LaydrNavRuntimeTest {
             },
             controllerFor = { section -> controllers.getValue(section) },
             returnHistory = history,
-            entryStore = store,
+            entryStateBinding = binding,
         )
         val contactsStackBefore = contactsController.backStack.toList()
         val profileStackBefore = profileController.backStack.toList()
@@ -241,7 +302,64 @@ class LaydrNavRuntimeTest {
         assertEquals(listOf(historyEntry), history)
         assertEquals(contactsStackBefore, contactsController.backStack)
         assertEquals(profileStackBefore, profileController.backStack)
-        assertEquals(0, store.payloadCount)
+        assertEquals(0, binding.payloadCount)
+    }
+
+    @Test
+    fun sectionResultLaunchFailurePrunesRegistrationAndCancelsOnce() {
+        val graph = testGraph()
+        val contacts = Section(
+            id = "contacts",
+            root = TestDestination(LaydrRouteKey("Contacts")),
+        )
+        val stack = mutableListOf<TestKey>(TestLaydrKey(LaydrNavEntryKey("Contacts")))
+        val controller = LaydrNavStackEngine(
+            appGraph = graph.appGraph,
+            backStack = stack,
+            keyAdapter = object : LaydrNavKeyAdapter<TestKey> {
+                override fun entryKey(key: TestKey): LaydrNavEntryKey? =
+                    (key as? TestLaydrKey)?.entryKey
+
+                override fun key(entryKey: LaydrNavEntryKey): TestKey {
+                    if (entryKey.entryInstanceId != null) {
+                        error("mutation")
+                    }
+                    return TestLaydrKey(entryKey)
+                }
+            },
+        )
+        val binding = LaydrNavEntryStateOwner().bind()
+        val engine = LaydrNavSectionsEngine(
+            sections = listOf(contacts),
+            initialSection = contacts,
+            selectedSectionState = MutableSelectedSectionState(contacts.id),
+            sectionStateId = { section -> section.id },
+            sectionLabel = { section -> section.id },
+            sectionForStateId = { stateId -> contacts.takeIf { it.id == stateId } },
+            sectionForDestination = { contacts },
+            sectionForEntryKey = { contacts },
+            controllerFor = { controller },
+            entryStateBinding = binding,
+        )
+        var cancellationCount = 0
+
+        val failure = assertFailsWith<IllegalStateException> {
+            engine.pushForResult(
+                launch = LaydrNavLaunch(
+                    destination = contacts.root,
+                    payload = "challenge",
+                ),
+                onCancel = { cancellationCount++ },
+                resultType = String::class,
+                onResult = {},
+            )
+        }
+
+        assertEquals("mutation", failure.message)
+        assertEquals(1, cancellationCount)
+        assertEquals(0, binding.payloadCount)
+        assertEquals(0, binding.resultCount)
+        assertEquals(listOf<TestKey>(TestLaydrKey(LaydrNavEntryKey("Contacts"))), stack)
     }
 
     @Test
@@ -291,11 +409,15 @@ class LaydrNavRuntimeTest {
         )
         return TestGraph(
             appGraph = LaydrAppGraph(routeMap),
+            contacts = contacts,
+            detail = detail,
         )
     }
 
     private data class TestGraph(
         val appGraph: LaydrAppGraph,
+        val contacts: LaydrRoute,
+        val detail: LaydrRoute,
     )
 
     private data class TestDestination(

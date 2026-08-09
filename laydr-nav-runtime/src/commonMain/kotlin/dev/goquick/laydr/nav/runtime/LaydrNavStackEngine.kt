@@ -87,6 +87,13 @@ public class LaydrNavStackEngine<Key : Any> public constructor(
         backStack.map { key -> keyAdapter.entryKey(key) ?: return null }
 
     /**
+     * Returns the Laydr entry keys in this stack while ignoring foreign
+     * adapter keys.
+     */
+    public fun laydrEntryKeys(): List<LaydrNavEntryKey> =
+        backStack.mapNotNull(keyAdapter::entryKey)
+
+    /**
      * Replaces the entire adapter stack with [keys].
      */
     public fun replaceWithEntryKeys(keys: List<LaydrNavEntryKey>) {
@@ -132,7 +139,9 @@ public class LaydrNavStackEngine<Key : Any> public constructor(
             key = key,
         )?.let { index -> suffixStart + index }
         if (detailSelectionIndex != null) {
-            backStack[detailSelectionIndex] = keyAdapter.key(key)
+            if (!keyAdapter.entryKey(backStack[detailSelectionIndex]).sameRouteIdentityAs(key)) {
+                backStack[detailSelectionIndex] = keyAdapter.key(key)
+            }
             while (backStack.lastIndex > detailSelectionIndex) {
                 backStack.removeLastOrNull()
             }
@@ -147,7 +156,7 @@ public class LaydrNavStackEngine<Key : Any> public constructor(
             replaceLaydrSuffix(expandedStack)
             return
         }
-        if (backStack.lastOrNull() != keyAdapter.key(key)) {
+        if (!backStack.lastOrNull().sameRouteIdentityAs(key)) {
             backStack.add(keyAdapter.key(key))
         }
     }

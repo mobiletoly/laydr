@@ -41,6 +41,12 @@ The route entry composable owns the workflow:
 - it collects workflow outputs
 - it maps outputs back to app behavior, including generated destinations
 
+That is the default lifecycle. When an entry-scoped ViewModel must retain a
+workflow across configuration changes, the ViewModel owns its disposal and the
+host declares `ownership = LaydrWorkflowOwnership.External`. The ViewModel
+calls `workflow.dispose()` from `onCleared()`. Navigators remain
+composition-owned and are never retained by the workflow or ViewModel.
+
 ## Choose Route, Screen State, Or Workflow
 
 | Need | Use |

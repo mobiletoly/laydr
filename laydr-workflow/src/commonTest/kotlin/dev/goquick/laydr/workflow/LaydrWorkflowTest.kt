@@ -1,6 +1,7 @@
 package dev.goquick.laydr.workflow
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -83,6 +84,18 @@ class LaydrWorkflowTest {
         scenario.assertNextOutput(TestOutput.Done)
         assertEquals(TestOutput.Done, workflow.lastObservedOutput)
         scenario.finish()
+    }
+
+    @Test
+    fun outputRemainsAvailableWhileNoHostIsCollecting() = runTest {
+        val node = CounterNode(this)
+        val workflow = LaydrWorkflow(this, node)
+        workflow.start()
+
+        node.onEvent(CounterEvent.Done)
+
+        assertEquals(TestOutput.Done, workflow.outputs.first())
+        workflow.dispose()
     }
 }
 

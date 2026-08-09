@@ -32,9 +32,9 @@ public class LaydrNavSectionsEngine<Section : Any, Key : Any> public constructor
     private val controllerFor: (Section) -> LaydrNavStackEngine<Key>,
     private val returnHistory: MutableList<LaydrNavReturnEntry> = mutableListOf(),
     /**
-     * Entry store shared by all section stacks.
+     * Retained entry-state binding shared by all section stacks.
      */
-    public val entryStore: LaydrNavEntryStore,
+    public val entryStateBinding: LaydrNavEntryStateBinding,
 ) {
     init {
         requireKnownSection(initialSection)
@@ -91,6 +91,7 @@ public class LaydrNavSectionsEngine<Section : Any, Key : Any> public constructor
      * Selects [section] without mutating section stacks.
      */
     public fun select(section: Section) {
+        entryStateBinding.requireActive()
         returnHistory.clear()
         selectedSectionState.value = sectionStateId(requireKnownSection(section))
     }
@@ -99,6 +100,7 @@ public class LaydrNavSectionsEngine<Section : Any, Key : Any> public constructor
      * Selects the section that owns [destination].
      */
     public fun select(destination: LaydrScreenDestination) {
+        entryStateBinding.requireActive()
         val section = requireOwningSection(destination)
         returnHistory.clear()
         selectedSectionState.value = sectionStateId(section)
@@ -114,8 +116,9 @@ public class LaydrNavSectionsEngine<Section : Any, Key : Any> public constructor
     /**
      * Selects the section that owns [path].
      */
-    public fun selectPath(path: String): LaydrNavPathResult =
-        when (val target = pathTarget(path)) {
+    public fun selectPath(path: String): LaydrNavPathResult {
+        entryStateBinding.requireActive()
+        return when (val target = pathTarget(path)) {
             is AcceptedPathTarget -> {
                 returnHistory.clear()
                 selectedSectionState.value = sectionStateId(target.section)
@@ -123,12 +126,14 @@ public class LaydrNavSectionsEngine<Section : Any, Key : Any> public constructor
             }
             is RejectedPathTarget -> target.result
         }
+    }
 
     /**
      * Selects the section that owns URL-like [input].
      */
-    public fun selectExternalTarget(input: String): LaydrNavExternalTargetResult =
-        when (val target = externalTarget(input)) {
+    public fun selectExternalTarget(input: String): LaydrNavExternalTargetResult {
+        entryStateBinding.requireActive()
+        return when (val target = externalTarget(input)) {
             is AcceptedExternalTarget -> {
                 returnHistory.clear()
                 selectedSectionState.value = sectionStateId(target.section)
@@ -136,11 +141,13 @@ public class LaydrNavSectionsEngine<Section : Any, Key : Any> public constructor
             }
             is RejectedExternalTarget -> target.result
         }
+    }
 
     /**
      * Pushes [destination] on the owning section stack using route identity.
      */
     public fun push(destination: LaydrScreenDestination) {
+        entryStateBinding.requireActive()
         val section = requireOwningSection(destination)
         val controller = controllerFor(section)
         val key = controller.validatedKey(destination)
@@ -150,29 +157,28 @@ public class LaydrNavSectionsEngine<Section : Any, Key : Any> public constructor
             returnHistory.clear()
         }
         selectedSectionState.value = sectionStateId(section)
-        entryStore.prune()
+        pruneEntryState()
     }
 
     /**
      * Pushes [launch] on the owning section stack.
      */
     public fun push(launch: LaydrNavLaunch) {
+        entryStateBinding.requireActive()
         val section = requireOwningSection(launch.destination)
         val controller = controllerFor(section)
         val validatedKey = controller.validatedKey(launch.destination)
         val clearReturnHistory = section != selectedSection
-        val key = entryStore.keyForLaunch(
+        val key = entryStateBinding.keyForLaunch(
             key = validatedKey,
             launch = launch,
         )
-        try {
+        mutateAndPruneEntryState {
             controller.pushNewEntryKey(key)
             if (clearReturnHistory) {
                 returnHistory.clear()
             }
             selectedSectionState.value = sectionStateId(section)
-        } finally {
-            entryStore.prune()
         }
     }
 
@@ -180,6 +186,7 @@ public class LaydrNavSectionsEngine<Section : Any, Key : Any> public constructor
      * Pushes [destination] and records return history.
      */
     public fun pushWithReturn(destination: LaydrScreenDestination) {
+        entryStateBinding.requireActive()
         navigateWithReturn(destination) { key -> pushKey(key) }
     }
 
@@ -187,64 +194,97 @@ public class LaydrNavSectionsEngine<Section : Any, Key : Any> public constructor
      * Pushes [launch] and records return history.
      */
     public fun pushWithReturn(launch: LaydrNavLaunch) {
+        entryStateBinding.requireActive()
         navigateWithReturn(launch) { key -> pushNewEntryKey(key) }
     }
 
     /**
      * Pushes the section-owned route represented by [path].
      */
-    public fun pushPath(path: String): LaydrNavPathResult =
-        when (val target = pathTarget(path)) {
+    public fun pushPath(path: String): LaydrNavPathResult {
+        entryStateBinding.requireActive()
+        return when (val target = pathTarget(path)) {
             is AcceptedPathTarget -> {
                 clearReturnHistoryForOrdinaryNavigation(target.section)
                 selectedSectionState.value = sectionStateId(target.section)
                 controllerFor(target.section).pushKey(target.result.key)
-                entryStore.prune()
+                pruneEntryState()
                 target.result
             }
             is RejectedPathTarget -> target.result
         }
+    }
 
     /**
      * Pushes the section-owned route represented by URL-like [input].
      */
-    public fun pushExternalTarget(input: String): LaydrNavExternalTargetResult =
-        when (val target = externalTarget(input)) {
+    public fun pushExternalTarget(input: String): LaydrNavExternalTargetResult {
+        entryStateBinding.requireActive()
+        return when (val target = externalTarget(input)) {
             is AcceptedExternalTarget -> {
                 clearReturnHistoryForOrdinaryNavigation(target.section)
                 selectedSectionState.value = sectionStateId(target.section)
                 controllerFor(target.section).pushKey(target.result.key)
-                entryStore.prune()
+                pruneEntryState()
                 target.result
             }
             is RejectedExternalTarget -> target.result
         }
+    }
+
+    /**
+     * Replaces the current entry with [destination] using route identity.
+     */
+    public fun replace(destination: LaydrScreenDestination) {
+        entryStateBinding.requireActive()
+        val section = requireOwningSection(destination)
+        val controller = controllerFor(section)
+        val key = controller.validatedKey(destination)
+        controller.requireCanReplaceCurrentEntry()
+        mutateAndPruneEntryState {
+            controller.replaceKey(key)
+            clearReturnHistoryForOrdinaryNavigation(section)
+            selectedSectionState.value = sectionStateId(section)
+        }
+    }
 
     /**
      * Replaces the current entry with [launch] on the owning section stack.
      */
     public fun replace(launch: LaydrNavLaunch) {
+        entryStateBinding.requireActive()
         val section = requireOwningSection(launch.destination)
         val controller = controllerFor(section)
         val validatedKey = controller.validatedKey(launch.destination)
         controller.requireCanReplaceCurrentEntry()
-        val key = entryStore.keyForLaunch(
+        val key = entryStateBinding.keyForLaunch(
             key = validatedKey,
             launch = launch,
         )
-        try {
+        mutateAndPruneEntryState {
             controller.replaceKey(key)
             clearReturnHistoryForOrdinaryNavigation(section)
             selectedSectionState.value = sectionStateId(section)
-        } finally {
-            entryStore.prune()
         }
+    }
+
+    /**
+     * Replaces with [destination] using route identity and records return
+     * history.
+     */
+    public fun replaceWithReturn(destination: LaydrScreenDestination) {
+        entryStateBinding.requireActive()
+        navigateWithReturn(
+            destination = destination,
+            preflight = { requireCanReplaceCurrentEntry() },
+        ) { key -> replaceKey(key) }
     }
 
     /**
      * Replaces with [launch] and records return history.
      */
     public fun replaceWithReturn(launch: LaydrNavLaunch) {
+        entryStateBinding.requireActive()
         navigateWithReturn(
             launch = launch,
             preflight = { requireCanReplaceCurrentEntry() },
@@ -254,43 +294,43 @@ public class LaydrNavSectionsEngine<Section : Any, Key : Any> public constructor
     /**
      * Replaces the current entry with the route represented by [path].
      */
-    public fun replacePath(path: String): LaydrNavPathResult =
-        when (val target = pathTarget(path)) {
+    public fun replacePath(path: String): LaydrNavPathResult {
+        entryStateBinding.requireActive()
+        return when (val target = pathTarget(path)) {
             is AcceptedPathTarget -> {
                 val controller = controllerFor(target.section)
                 controller.requireCanReplaceCurrentEntry()
-                try {
+                mutateAndPruneEntryState {
                     controller.replaceKey(target.result.key)
                     clearReturnHistoryForOrdinaryNavigation(target.section)
                     selectedSectionState.value = sectionStateId(target.section)
-                } finally {
-                    entryStore.prune()
                 }
                 target.result
             }
             is RejectedPathTarget -> target.result
         }
+    }
 
     /**
      * Replaces the current entry with the route represented by URL-like
      * [input].
      */
-    public fun replaceExternalTarget(input: String): LaydrNavExternalTargetResult =
-        when (val target = externalTarget(input)) {
+    public fun replaceExternalTarget(input: String): LaydrNavExternalTargetResult {
+        entryStateBinding.requireActive()
+        return when (val target = externalTarget(input)) {
             is AcceptedExternalTarget -> {
                 val controller = controllerFor(target.section)
                 controller.requireCanReplaceCurrentEntry()
-                try {
+                mutateAndPruneEntryState {
                     controller.replaceKey(target.result.key)
                     clearReturnHistoryForOrdinaryNavigation(target.section)
                     selectedSectionState.value = sectionStateId(target.section)
-                } finally {
-                    entryStore.prune()
                 }
                 target.result
             }
             is RejectedExternalTarget -> target.result
         }
+    }
 
     /**
      * Pushes [launch] and registers a one-shot typed result callback.
@@ -301,6 +341,7 @@ public class LaydrNavSectionsEngine<Section : Any, Key : Any> public constructor
         resultType: KClass<Result>,
         onResult: (Result) -> Unit,
     ) {
+        entryStateBinding.requireActive()
         val section = requireOwningSection(launch.destination)
         if (section == selectedSection) {
             val controller = controllerFor(section)
@@ -311,8 +352,9 @@ public class LaydrNavSectionsEngine<Section : Any, Key : Any> public constructor
                 onCancel = onCancel,
                 onResult = onResult,
             )
-            controller.pushNewEntryKey(key)
-            entryStore.prune()
+            mutateAndPruneEntryState {
+                controller.pushNewEntryKey(key)
+            }
             return
         }
 
@@ -334,26 +376,29 @@ public class LaydrNavSectionsEngine<Section : Any, Key : Any> public constructor
      * Performs app Back.
      */
     public fun back(): Boolean {
+        entryStateBinding.requireActive()
         val entry = matchingReturnEntry()
         if (entry != null) {
             returnHistory.removeAt(returnHistory.lastIndex)
             if (restoreReturnEntry(entry)) {
-                entryStore.prune()
+                pruneEntryState()
                 return true
             }
         }
         return popSelectedStack().also {
-            entryStore.prune()
+            pruneEntryState()
         }
     }
 
     /**
      * Pops the selected stack.
      */
-    public fun popSelectedStack(): Boolean =
-        selectedController.popLaydrEntry().also {
-            entryStore.prune()
+    public fun popSelectedStack(): Boolean {
+        entryStateBinding.requireActive()
+        return selectedController.popLaydrEntry().also {
+            pruneEntryState()
         }
+    }
 
     private fun clearReturnHistoryForOrdinaryNavigation(section: Section) {
         if (section != selectedSection) {
@@ -385,7 +430,7 @@ public class LaydrNavSectionsEngine<Section : Any, Key : Any> public constructor
             destination = launch.destination,
             preflight = preflight,
             keyForNavigation = { controller ->
-                entryStore.keyForLaunch(
+                entryStateBinding.keyForLaunch(
                     key = controller.validatedKey(launch.destination),
                     launch = launch,
                 )
@@ -423,10 +468,8 @@ public class LaydrNavSectionsEngine<Section : Any, Key : Any> public constructor
         targetController.preflight()
         val key = keyForNavigation(targetController)
 
-        try {
+        mutateAndPruneEntryState {
             targetController.operation(key)
-        } finally {
-            entryStore.prune()
         }
         selectedSectionState.value = sectionStateId(targetSection)
 
@@ -454,7 +497,7 @@ public class LaydrNavSectionsEngine<Section : Any, Key : Any> public constructor
         onCancel: () -> Unit,
         onResult: (Result) -> Unit,
     ): LaydrNavEntryKey =
-        entryStore.keyForLaunchAndResult(
+        entryStateBinding.keyForLaunchAndResult(
             key = controller.validatedKey(launch.destination),
             launch = launch,
             resultType = resultType,
@@ -464,6 +507,32 @@ public class LaydrNavSectionsEngine<Section : Any, Key : Any> public constructor
                 onResult(result as Result)
             },
         )
+
+    private fun pruneEntryState() {
+        entryStateBinding.prune(
+            sections.flatMap { section -> controllerFor(section).laydrEntryKeys() },
+        )
+    }
+
+    private fun <T> mutateAndPruneEntryState(mutation: () -> T): T {
+        var mutationFailure: Throwable? = null
+        try {
+            return mutation()
+        } catch (thrown: Throwable) {
+            mutationFailure = thrown
+            throw thrown
+        } finally {
+            try {
+                pruneEntryState()
+            } catch (cleanupFailure: Throwable) {
+                val primaryFailure = mutationFailure
+                if (primaryFailure == null) {
+                    throw cleanupFailure
+                }
+                primaryFailure.addSuppressed(cleanupFailure)
+            }
+        }
+    }
 
     private fun matchingReturnEntry(): LaydrNavReturnEntry? {
         val entry = returnHistory.lastOrNull() ?: return null

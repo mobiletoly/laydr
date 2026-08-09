@@ -58,3 +58,9 @@ destinations.
 Laydr intentionally does not generate workflow nodes, reducers, ViewModels,
 repositories, DI wiring, renderer skeletons, test skeletons, or business
 logic.
+
+`LaydrWorkflowHost` normally owns workflow disposal. It also supports explicit
+external ownership for an entry-scoped ViewModel. In that mode the host only
+starts rendering and collects outputs while present; the ViewModel disposes the
+workflow when its entry is cleared. Workflow outputs use a buffered,
+single-consumer stream so a temporary host gap does not discard an output.
