@@ -44,11 +44,11 @@ subprojects {
     version = laydrVersion
 }
 
-// Internal runner input: historical client and current catalog toolchain.
+// Internal runner input: historical Kotlin/AGP client with current runtime dependencies.
 val consumerVersionRows = listOf(
     listOf(
-        libs.versions.compatibilityKotlin.get(), libs.versions.compatibilityCompose.get(),
-        libs.versions.compatibilityNav3Kmp.get(), libs.versions.compatibilityAgp.get(),
+        libs.versions.compatibilityKotlin.get(), libs.versions.compose.get(),
+        libs.versions.nav3Kmp.get(), libs.versions.compatibilityAgp.get(),
         libs.versions.activity.get(),
     ),
     listOf(

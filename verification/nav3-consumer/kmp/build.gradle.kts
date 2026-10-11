@@ -23,6 +23,7 @@ kotlin {
     listOf(iosArm64(), iosSimulatorArm64()).forEach { target ->
         target.binaries.framework {
             baseName = "Nav3Consumer"
+            binaryOption("bundleId", "dev.goquick.laydr.verification.nav3consumer")
             isStatic = true
         }
     }

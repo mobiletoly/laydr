@@ -96,6 +96,18 @@ tags that match `vX.Y.Z` or `vX.Y.Z-*`.
 
 The workflow pins `macos-26` rather than `macos-latest` so release validation
 uses the current iOS simulator SDK needed by Compose UIKit dependencies.
+Checkout and Java setup use maintained Node.js 24 action releases shared with
+the Nav3 validation workflow. Action updates preserve release triggers, version
+guards, credential handling, and manual dry-run-only behavior.
+
+Release validation qualifies both catalog Kotlin consumer versions through
+`./scripts/check-nav3-consumers.sh` before the Maven Central step. This gate
+uses fresh verification publications and receives no publishing credentials;
+Maven local assembly alone does not prove compatibility. Consumer reports and
+compiler evidence are uploaded even when qualification fails. Routine Nav3 CI
+uses only the older compiler unless a toolchain/build/generated-helper change
+requires both. Release jobs cache Gradle and Native dependencies using the
+same bounded cache policy described in the engineering guide.
 
 Before publishing, the workflow verifies that:
 

@@ -387,9 +387,12 @@ changes separate from target SDK/runtime test-device changes. With Compose
 browser tests bundle Skiko through webpack; their Maven artifacts remain KLIBs.
 The root Gradle heap budget is 6 GiB for optimized Native example linking.
 
-Named compatibility versions retain the historical consumer and TestKit
-baselines. The current consumer profile follows the main Kotlin, Compose,
-Navigation3, AGP, and activity entries. `writeNav3ConsumerVersions` writes both
+Named compatibility versions retain historical Kotlin/AGP consumer and TestKit
+baselines. Both consumer profiles use the current Compose, Navigation3, and
+activity entries, keeping the Compose plugin aligned with the resolved runtime
+dependencies. The current profile also follows the main Kotlin/AGP entries;
+the older profile verifies the Kotlin compatibility floor against those current
+runtime dependencies. `writeNav3ConsumerVersions` writes both
 profiles to `build/nav3-validation/consumer-versions.tsv`; the consumer runner
 copies that evidence and supplies versions to the standalone fixture catalog.
 Fixture build scripts use aliases and still resolve published artifacts from a
@@ -430,9 +433,49 @@ Nav3 and Kotlin/Compose/Navigation3 upgrade checks additionally require:
 Use an API 36 emulator for connected AndroidX tests. The consumer script runs
 on macOS, publishes only into build output, and checks the catalog's historical
 and current Kotlin consumer toolchains, JVM UI execution, Android compilation, Native
-framework linking, and Wasm executable linking. The focused Nav3 CI workflow
-runs these gates for relevant pull requests and main changes. Keep failed or
-unrun gates explicit; do not bypass them to approve a compiler upgrade.
+framework linking, and Wasm executable linking. By default the local command
+runs both compiler profiles; pass a catalog compiler version to select one.
+Keep failed or unrun gates explicit; do not bypass them to approve an upgrade.
+
+The focused Nav3 CI workflow qualifies only the older Kotlin compiler for
+routine runtime PR/main changes. Toolchain, Gradle/plugin, codegen, consumer
+fixture, selector, or workflow changes qualify both profiles, as do manual
+runs. `scripts/select-nav3-ci.py` reads the catalog and GitHub event's Git diff;
+missing history selects every gate conservatively. Desktop lifecycle tests
+always run. Generator/plugin and publishing tests run when their owners or
+toolchain change. AndroidX UI tests run for AndroidX/shared runtime, generated
+helper, or toolchain changes; KMP-only changes skip the emulator job. Both
+consumer versions remain mandatory before release publication.
+
+CI caches Gradle dependencies and producer build outputs with
+`gradle/actions/setup-gradle@v6` using the basic provider. macOS jobs also cache
+`~/.konan/dependencies` with `actions/cache@v6`, keyed by OS/architecture, the
+runner label, catalog, and wrapper. Native compiler distributions and compiled
+Native caches are excluded to limit transfer size. Consumer Maven repositories
+remain fresh, compiler assertions always run, and isolated consumer builds
+do not enable the producer build cache. Measure elapsed time and cache sizes
+on the next hosted run; cache misses and first runs can still be slow.
+
+CI selection tests run with:
+
+```sh
+python3 -B -m unittest discover -s scripts/tests -v
+```
+
+Use explicit hosted runner labels: macos-26 for desktop/consumer/release jobs
+and ubuntu-24.04 for the AndroidX emulator job. Review OS migrations explicitly
+instead of inheriting changes through ubuntu-latest. The workflows use Node.js
+24 action releases (checkout v7, setup-java v6, upload-artifact v7). When
+updating an action, check its runtime, minimum runner requirements, supported
+inputs, and breaking changes, then run actionlint on both workflow files.
+Local linting validates configuration; a hosted run validates execution.
+
+Consumer Native frameworks declare a fixture bundle ID and use
+`kotlin.native.parallelThreads=0` to adapt backend threads to available cores.
+Plugin build scripts use explicit Gradle create/register APIs instead of the
+delegated APIs deprecated in Gradle 9.6. Investigate warnings with
+`--warning-mode all`; keep any upstream plugin deprecations distinct from
+warnings owned by Laydr's build scripts.
 
 ## Validation Artifact Cleanup
 

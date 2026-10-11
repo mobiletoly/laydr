@@ -23,7 +23,7 @@ gradlePlugin {
 }
 
 val functionalTestSourceSet = sourceSets.create("functionalTest")
-val functionalTestKotlinPlugin by configurations.creating
+val functionalTestKotlinPlugin = configurations.create("functionalTestKotlinPlugin")
 dependencies {
     add(functionalTestKotlinPlugin.name, libs.kotlin.gradle.plugin.compatibility)
 }
@@ -40,7 +40,7 @@ configurations[functionalTestSourceSet.runtimeOnlyConfigurationName].extendsFrom
     configurations.testRuntimeOnly.get(),
 )
 
-val functionalTest by tasks.registering(Test::class) {
+val functionalTest = tasks.register<Test>("functionalTest") {
     description = "Runs functional tests for the Laydr Gradle plugin."
     group = LifecycleBasePlugin.VERIFICATION_GROUP
     testClassesDirs = functionalTestSourceSet.output.classesDirs

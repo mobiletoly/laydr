@@ -29,13 +29,24 @@ jobs:
       LAYDR_RELEASE_VERSION_INPUT: ${{ inputs.release_version || '' }}
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: 'temurin'
           java-version: 17
+
+      - name: Cache Gradle dependencies and builds
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic
+
+      - name: Cache Kotlin Native dependencies
+        uses: actions/cache@v6
+        with:
+          path: ~/.konan/dependencies
+          key: nav3-native-deps-${{ runner.os }}-${{ runner.arch }}-macos-26-${{ hashFiles('gradle/libs.versions.toml', 'gradle/wrapper/gradle-wrapper.properties') }}
 
       - name: Validate release version
         shell: bash
@@ -127,9 +138,23 @@ jobs:
             :examples:nav3-kmp:desktopApp:compileKotlin \
             :examples:nav3-androidx:assembleDebug \
             publishToMavenLocal \
+            --build-cache \
             --no-daemon \
             --no-configuration-cache \
             -Dorg.gradle.vfs.watch=false
+
+      - name: Qualify both published-artifact consumer compilers
+        run: ./scripts/check-nav3-consumers.sh
+
+      - name: Upload consumer qualification evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-nav3-consumers
+          path: |
+            build/nav3-validation/
+            build/nav3-consumers.*/*.log
+            build/nav3-consumers.*/**/build/reports/
 
       - name: Publish Laydr artifacts to Maven Central
         if: env.LAYDR_RELEASE_DRY_RUN != 'true'
