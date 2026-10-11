@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "dev.goquick.laydr.examples.basic.android"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "dev.goquick.laydr.examples.basic.android"

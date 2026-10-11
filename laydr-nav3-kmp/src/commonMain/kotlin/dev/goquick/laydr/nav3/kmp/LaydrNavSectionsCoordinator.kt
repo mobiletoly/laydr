@@ -11,6 +11,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshots.Snapshot
@@ -68,15 +69,16 @@ internal fun <Data : Any> rememberLaydrNavSectionsCoordinator(
             )
         }
     }
+    val currentStack = rememberUpdatedState {
+        sectionControllers.values.flatMap { controller -> controller.backStack }
+    }
     val resolvedEntryStateOwner = remember(entryStateOwner) {
         entryStateOwner ?: LaydrNavEntryStateOwner()
     }
-    val entryStore = remember(sectionControllers, resolvedEntryStateOwner) {
+    val entryStore = remember(resolvedEntryStateOwner) {
         val access = LaydrNavEntryStateAccess(
             runtimeBinding = resolvedEntryStateOwner.bind(),
-            currentStack = {
-                sectionControllers.values.flatMap { controller -> controller.backStack }
-            },
+            currentStack = { currentStack.value() },
         )
         Snapshot.withoutReadObservation { access.prune() }
         access

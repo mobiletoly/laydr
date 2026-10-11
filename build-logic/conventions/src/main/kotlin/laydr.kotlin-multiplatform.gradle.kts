@@ -2,6 +2,7 @@
 
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 
 plugins {
     kotlin("multiplatform")
@@ -10,6 +11,10 @@ plugins {
 kotlin {
     explicitApi()
     jvmToolchain(17)
+    compilerOptions {
+        languageVersion.set(KotlinVersion.KOTLIN_2_4)
+        apiVersion.set(KotlinVersion.KOTLIN_2_4)
+    }
 
     jvm {
         compilerOptions {

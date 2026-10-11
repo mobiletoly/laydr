@@ -430,6 +430,12 @@ navigator, and entry provider from the current composition and pass callbacks
 down from there. Also avoid capturing the destroyed Activity or composition in
 owner-retained payloads and result callbacks.
 
+Equivalent scene reconstruction within the same composition does not rebind
+entry state. Managed cached entries use an updated access reference when the
+backing stack or owner is replaced. If ordinary scene reconstruction triggers
+this exception, inspect the adapter's binding lifetime rather than treating it
+as proof that the app retained an old wrapper.
+
 ## Workflow Setup Fails
 
 Symptom: workflow host APIs are unavailable, or workflow outputs do not trigger

@@ -5,6 +5,7 @@ package dev.goquick.laydr.nav3.kmp
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.savedstate.serialization.SavedStateConfiguration
 import dev.goquick.laydr.compose.LaydrComposeRouteDefinitions
 import dev.goquick.laydr.nav.runtime.LaydrNavEntryStateOwner
@@ -27,6 +28,11 @@ import dev.goquick.laydr.nav.runtime.LaydrNavEntryStateOwner
  * One binding covers every declared section stack. Rebinding invalidates old
  * section wrappers and navigators; reacquire them from the current composition.
  * @param notFoundContent content rendered for invalid Nav3 keys.
+ *
+ * Equivalent scene reconstruction preserves payloads, results, and return
+ * history. One binding covers the helper composition and owner; cleanup reads
+ * the current aggregate of section stacks. Acquire current wrappers after
+ * reconfiguration; composition recreation still invalidates old bindings.
  */
 @Composable
 public fun <Data : Any> rememberLaydrNavSections(
@@ -51,12 +57,13 @@ public fun <Data : Any> rememberLaydrNavSections(
         savedStateConfiguration = savedStateConfiguration,
         entryStateOwner = entryStateOwner,
     )
+    val currentEntryStore = rememberUpdatedState(coordinator.entryStore)
     val entryProvider = laydrNavSectionEntryProvider(
         routeDefinitions = routeDefinitions,
         sectionSet = sectionSet,
         sceneSupport = sceneSupport,
         entryMetadata = entryMetadata,
-        entryStore = coordinator.entryStore,
+        entryStore = { currentEntryStore.value },
         notFoundContent = notFoundContent,
     )
 

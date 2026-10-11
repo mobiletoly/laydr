@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.snapshots.Snapshot
 import androidx.navigation3.runtime.NavBackStack
@@ -105,6 +106,11 @@ public inline fun <reified Result : Any> LaydrNavStackNavigator.pushForResult(
  * Pass an app-retained owner to preserve payloads and pending results across
  * configuration recreation. Always reacquire the returned stack and navigator
  * from the current composition after rebinding.
+ *
+ * Equivalent scene reconstruction preserves transient entry state. Bindings
+ * follow backing-stack container and owner lifetime, and cached Nav3 content
+ * reads current composition access. Acquire current navigation wrappers after
+ * reconfiguration; disposed or superseded bindings remain stale.
  */
 @Composable
 public fun rememberLaydrNavStack(
@@ -154,7 +160,7 @@ public fun rememberLaydrNavStack(
     entryStateOwner: LaydrNavEntryStateOwner? = null,
     notFoundContent: @Composable (notFound: LaydrNavNotFound) -> Unit,
 ): LaydrNavStack {
-    val coordinator = remember(routeDefinitions.appGraph, backStack, sceneSupport) {
+    val coordinator = remember(routeDefinitions.appGraph, BackStackIdentity(backStack), sceneSupport) {
         LaydrNavStackCoordinator(
             appGraph = routeDefinitions.appGraph,
             backStack = backStack,
@@ -164,10 +170,10 @@ public fun rememberLaydrNavStack(
     val resolvedEntryStateOwner = remember(entryStateOwner) {
         entryStateOwner ?: LaydrNavEntryStateOwner()
     }
-    val entryStore = remember(coordinator, resolvedEntryStateOwner) {
+    val entryStore = remember(BackStackIdentity(backStack), resolvedEntryStateOwner) {
         val access = LaydrNavEntryStateAccess(
             runtimeBinding = resolvedEntryStateOwner.bind(),
-            currentStack = { coordinator.backStack },
+            currentStack = { backStack },
         )
         Snapshot.withoutReadObservation { access.prune() }
         access
@@ -184,11 +190,12 @@ public fun rememberLaydrNavStack(
         backStack = coordinator.backStack,
         entryStore = entryStore,
     )
+    val currentEntryStore = rememberUpdatedState(entryStore)
     val entryProvider = laydrNavEntryProvider(
         routeDefinitions = routeDefinitions,
         sceneSupport = sceneSupport,
         entryMetadata = { context -> entryMetadata.metadata(context).values },
-        entryStore = entryStore,
+        entryStore = { currentEntryStore.value },
         notFoundContent = notFoundContent,
     )
     return remember(coordinator, entryProvider, entryStore) {
@@ -518,4 +525,12 @@ internal fun LaydrAppGraph.validatedNavKey(
 ): LaydrNavKey {
     requireScreenRoute(destination)
     return destination.navKey()
+}
+
+// NavBackStack may use value equality. Binding ownership follows the container itself.
+private class BackStackIdentity(private val stack: NavBackStack<NavKey>) {
+    override fun equals(other: Any?): Boolean =
+        other is BackStackIdentity && stack === other.stack
+
+    override fun hashCode(): Int = 0
 }

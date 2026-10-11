@@ -306,6 +306,19 @@ AndroidX Nav3 artifact is Android-only. Laydr JVM artifacts target JVM 17
 bytecode, so JVM and desktop KMP consumers may compile with
 `jvmTarget = JVM_17` when using Laydr runtime artifacts.
 
+The library build uses Kotlin/Compose compiler 2.4.21 with language/API level
+2.4. Consumer qualification checks actual Kotlin 2.4.10 and 2.4.21 compilers
+against published JVM, Android, Native, and Wasm artifacts. The Laydr Gradle
+plugin uses the consumer's Kotlin plugin rather than bringing its build-time
+Kotlin plugin onto the consumer runtime classpath. These checks define a
+tested floor; they do not promise consumption by arbitrarily older compilers.
+
+The AndroidX Nav3 adapter and current Compose Android dependencies require
+`compileSdk = 37` or newer in consuming apps. The adapter's minimum runtime
+is API 26. Compile SDK is independent of target SDK; the examples retain
+`targetSdk = 36`. Raising compile SDK does not itself raise the minimum device
+version or opt the app into a newer target SDK's runtime behavior.
+
 ## When Generated APIs Are Missing
 
 Check these in order:

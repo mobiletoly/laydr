@@ -369,6 +369,33 @@ continuing.
 
 ## Validation
 
+### Dependency Catalogs
+
+`gradle/libs.versions.toml` owns project library and plugin versions. Use its
+aliases for external Maven dependencies, including test dependencies. Convention
+scripts obtain the same catalog through `VersionCatalogsExtension`. Kotlin's
+`kotlin("test...")` and Compose's platform selectors remain plugin-managed.
+
+Compose Multiplatform UI tests follow `compose`. AndroidX UI tests follow
+`androidxComposeUi`, which must match the resolved Android UI dependency;
+the two version numbers are independent. Keep the test-only Espresso version
+compatible with the API 36 test host.
+
+The current Android dependencies require compile SDK 37. Keep compile SDK
+changes separate from target SDK/runtime test-device changes. With Compose
+1.12.1, the KMP Nav3 and adaptive modules declare Wasm executable binaries so
+browser tests bundle Skiko through webpack; their Maven artifacts remain KLIBs.
+The root Gradle heap budget is 6 GiB for optimized Native example linking.
+
+Named compatibility versions retain the historical consumer and TestKit
+baselines. The current consumer profile follows the main Kotlin, Compose,
+Navigation3, AGP, and activity entries. `writeNav3ConsumerVersions` writes both
+profiles to `build/nav3-validation/consumer-versions.tsv`; the consumer runner
+copies that evidence and supplies versions to the standalone fixture catalog.
+Fixture build scripts use aliases and still resolve published artifacts from a
+fresh local repository. Changing catalog declarations does not replace running
+the compatibility gates below.
+
 Use the narrowest validation that proves the slice.
 
 Baseline repository checks:
@@ -391,6 +418,60 @@ Docs-only changes should at least check the touched Markdown for stale terms,
 trailing whitespace, and non-ASCII text when plain ASCII is expected.
 
 Do not claim validation passed unless the command was actually run.
+
+Nav3 and Kotlin/Compose/Navigation3 upgrade checks additionally require:
+
+```sh
+./gradlew :laydr-nav-runtime:jvmTest :laydr-nav3-kmp:jvmTest :laydr-nav3-androidx:testDebugUnitTest
+./gradlew :laydr-nav3-androidx:connectedDebugAndroidTest
+./scripts/check-nav3-consumers.sh
+```
+
+Use an API 36 emulator for connected AndroidX tests. The consumer script runs
+on macOS, publishes only into build output, and checks the catalog's historical
+and current Kotlin consumer toolchains, JVM UI execution, Android compilation, Native
+framework linking, and Wasm executable linking. The focused Nav3 CI workflow
+runs these gates for relevant pull requests and main changes. Keep failed or
+unrun gates explicit; do not bypass them to approve a compiler upgrade.
+
+## Validation Artifact Cleanup
+
+Measure free space before substantial validation with `df -h .`, then inspect
+only the relevant build and cache directories with `du -sh`. Repeat at
+closeout. Shared Gradle/Kotlin cache totals include other projects and older
+toolchains; without a baseline, their full size cannot be attributed to the
+current task. Verify actual free-space recovery after cleanup.
+
+Tests should own fixture directories through JUnit temporary-directory support
+or a guaranteed `finally` block. Cleanup must run after failed assertions as
+well as successful tests. Keep one isolated TestKit cache under the owning
+module's `build/` directory per test task so cases reuse Gradle's transformed
+plugin jars. Preserve credential/config isolation from the user's Gradle home;
+that isolation does not require duplicating a cache for every case. TestKit's
+injected plugin classpath still cannot prove published-artifact compatibility.
+
+Each consumer qualification run needs a fresh file-based Maven repository.
+After the build processes finish, archive the run's logs, actual compiler and
+dependency evidence, reports, version matrix, exact commands, and outcome in
+the repository's validation output. Update links/pointers if evidence moves.
+Then remove superseded compiled consumer outputs and temporary repositories.
+By default retain at most the latest successful compiled run, plus any run
+needed for active review or specifically requested by the user. Preserve
+failed-run diagnostics before removing their bulky outputs.
+
+At task closeout, remove disposable task-owned fixtures and emulators, and
+report retained large directories with their purpose. Check ownership and
+active use before removing files or stopping processes. Installed shared
+toolchains, global caches, unrelated project outputs, Maven local publications,
+and existing emulators require a separate explicit cleanup request. Gradle's
+`clean` task is not a substitute for auditing external temporary directories
+and standalone consumer runs.
+
+Current automation gaps: `LaydrPublishingPluginTest` creates unmanaged system
+temporary directories and a TestKit cache per signing fixture;
+`scripts/check-nav3-consumers.sh` retains every run under `build/nav3-consumers.*`.
+These need source changes to enforce automatic cleanup/retention. The rules
+above do not change that existing behavior by themselves.
 
 ## Starting A New Implementation Session
 

@@ -1,6 +1,7 @@
 package dev.goquick.laydr.nav3.kmp
 
 import androidx.navigation3.runtime.NavBackStack
+import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.NavKey
 import dev.goquick.laydr.compose.LaydrComposeRouteDefinitions
 import dev.goquick.laydr.compose.LaydrComposeScreenRouteDefinition
@@ -279,7 +280,7 @@ class LaydrNavEntryProviderTest {
 
         val entry = provider(home.key().navKey())
 
-        assertEquals(home.key().navKey().toString(), entry.contentKey)
+        assertEquals(NavEntry<NavKey>(key = home.key().navKey()) { }.contentKey, entry.contentKey)
         assertEquals(0, evaluations)
     }
 
@@ -389,7 +390,7 @@ class LaydrNavEntryProviderTest {
             entryMetadata = { context ->
                 mapOf("app:key" to context.key.routeId)
             },
-            entryStore = coordinator.entryStore,
+            entryStore = { coordinator.entryStore },
             notFoundContent = { _ -> },
         )
 
@@ -465,7 +466,7 @@ class LaydrNavEntryProviderTest {
                     "app:id" to context.match.parameters.getValue("id"),
                 )
             },
-            entryStore = coordinator.entryStore,
+            entryStore = { coordinator.entryStore },
             notFoundContent = { _ -> },
         )
 
@@ -504,7 +505,7 @@ class LaydrNavEntryProviderTest {
         val key = LaydrNavKey(routeId = "Missing")
         val entry = provider(key)
 
-        assertEquals(key.toString(), entry.contentKey)
+        assertEquals(NavEntry<NavKey>(key = key) { }.contentKey, entry.contentKey)
         assertEquals(0, evaluations)
     }
 
@@ -528,7 +529,7 @@ class LaydrNavEntryProviderTest {
 
         val entry = provider(ForeignKey)
 
-        assertEquals(ForeignKey.toString(), entry.contentKey)
+        assertEquals(NavEntry<NavKey>(key = ForeignKey) { }.contentKey, entry.contentKey)
         assertEquals(0, evaluations)
     }
 

@@ -184,6 +184,12 @@ restoration has no payloads or callbacks. Retain only the owner; always
 reacquire stacks, sections, navigators, and entry providers from the current
 composition because rebinding invalidates the old navigator.
 
+Reconstructing equivalent scene support in the same composition preserves its
+entry-state binding. Bindings follow backing-stack/owner lifetime, not scene
+configuration identity. Managed cached Navigation3 entries read current
+composition access. This does not make old wrappers safe to retain across
+composition recreation or add live graph/entry-metadata editing.
+
 Use `pushForResult` for one-shot answers:
 
 ```kotlin

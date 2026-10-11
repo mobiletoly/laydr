@@ -71,6 +71,13 @@ entry-instance id, including payload-free launches. Payloads, result callbacks,
 and entry metadata remain transient entry-scoped data. The AndroidX adapter does not currently expose
 KMP retained-owner integration.
 
+Transient ownership lasts for the helper composition. Reconstructing equivalent
+route definitions or internal scene configuration preserves payloads and
+pending results during that composition. Cached Navigation3 content reads
+current access after a backing-stack replacement. Acquire current wrappers
+after reconfiguration; disposed wrappers remain stale. This does not promise
+payload/result retention across Activity recreation.
+
 The app still owns Android UI policy, retained state, ViewModels, deep links,
 themes, auth, and chrome. AndroidX adaptive scene support is not part of this
 adapter.

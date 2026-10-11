@@ -71,7 +71,7 @@ public fun laydrNavEntryProvider(
         layoutContent = layoutContent,
         sceneSupport = sceneSupport,
         entryMetadata = entryMetadata,
-        entryStore = null,
+        entryStore = { null },
         screenContent = screenContent,
     )
 
@@ -84,7 +84,7 @@ internal fun laydrNavEntryProvider(
     ) -> Unit = { _, content -> content() },
     sceneSupport: LaydrNavSceneSupport = LaydrNavSceneSupport.None,
     entryMetadata: (LaydrNavEntryContext) -> Map<String, Any> = { emptyMap() },
-    entryStore: LaydrNavEntryStateAccess?,
+    entryStore: () -> LaydrNavEntryStateAccess?,
     screenContent: @Composable (match: LaydrRouteMatch) -> LaydrScreenContent,
 ): (NavKey) -> NavEntry<NavKey> = { key ->
     val laydrKey = key as? LaydrNavKey
@@ -122,12 +122,13 @@ internal fun laydrNavEntryProvider(
             notFoundContent(laydrNavNotFound(key = key, routeMap = routeMap))
         } else {
             val screen = screenContent(resolvedEntry.match)
+            val currentEntryStore = entryStore()
             CompositionLocalProvider(
                 LocalLaydrNavPayloadLookup provides (
-                    entryStore?.lookupPayload(laydrKey) ?: LaydrNavPayloadLookup.Missing
+                    currentEntryStore?.lookupPayload(laydrKey) ?: LaydrNavPayloadLookup.Missing
                 ),
                 LocalLaydrNavResultLookup provides (
-                    entryStore?.lookupResult(laydrKey) ?: LaydrNavResultLookup.Missing
+                    currentEntryStore?.lookupResult(laydrKey) ?: LaydrNavResultLookup.Missing
                 ),
             ) {
                 RenderLaydrNavContent(
@@ -160,7 +161,7 @@ public fun laydrNavEntryProvider(
         routeDefinitions = routeDefinitions,
         sceneSupport = sceneSupport,
         entryMetadata = entryMetadata,
-        entryStore = null,
+        entryStore = { null },
         notFoundContent = notFoundContent,
     )
 
@@ -168,7 +169,7 @@ internal fun laydrNavEntryProvider(
     routeDefinitions: LaydrComposeRouteDefinitions,
     sceneSupport: LaydrNavSceneSupport = LaydrNavSceneSupport.None,
     entryMetadata: (LaydrNavEntryContext) -> Map<String, Any> = { emptyMap() },
-    entryStore: LaydrNavEntryStateAccess?,
+    entryStore: () -> LaydrNavEntryStateAccess?,
     notFoundContent: @Composable (notFound: LaydrNavNotFound) -> Unit,
 ): (NavKey) -> NavEntry<NavKey> =
     laydrNavEntryProvider(
@@ -304,7 +305,7 @@ internal fun <Data : Any> laydrNavSectionEntryProvider(
     sectionSet: LaydrNavSectionSet<Data>,
     sceneSupport: LaydrNavSceneSupport = LaydrNavSceneSupport.None,
     entryMetadata: (LaydrNavSectionEntryContext<Data>) -> Map<String, Any> = { emptyMap() },
-    entryStore: LaydrNavEntryStateAccess?,
+    entryStore: () -> LaydrNavEntryStateAccess?,
     notFoundContent: @Composable (notFound: LaydrNavNotFound) -> Unit,
 ): (NavKey) -> NavEntry<NavKey> = { key ->
     val laydrKey = key as? LaydrNavKey
@@ -351,12 +352,13 @@ internal fun <Data : Any> laydrNavSectionEntryProvider(
                 )
             else -> {
                 val screen = routeDefinitions.screenContent(match = resolvedEntry.match)
+                val currentEntryStore = entryStore()
                 CompositionLocalProvider(
                     LocalLaydrNavPayloadLookup provides (
-                        entryStore?.lookupPayload(laydrKey) ?: LaydrNavPayloadLookup.Missing
+                        currentEntryStore?.lookupPayload(laydrKey) ?: LaydrNavPayloadLookup.Missing
                     ),
                     LocalLaydrNavResultLookup provides (
-                        entryStore?.lookupResult(laydrKey) ?: LaydrNavResultLookup.Missing
+                        currentEntryStore?.lookupResult(laydrKey) ?: LaydrNavResultLookup.Missing
                     ),
                 ) {
                     RenderLaydrNavContent(

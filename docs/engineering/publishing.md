@@ -46,7 +46,20 @@ Focused checks:
 ./gradlew :laydr-gradle-plugin:publishToMavenLocal
 ```
 
-Local publishing must not require signing credentials.
+Local-only publishing must not require signing credentials. If the same
+invocation also requests remote publication, remote signing policy takes
+precedence for all publications. Task order and project-qualified task names
+do not change that policy.
+
+For consumer qualification, `./scripts/check-nav3-consumers.sh` publishes all
+product artifacts and the plugin marker to a fresh directory under
+`build/nav3-consumers.*`. It supplies `nav3VerificationRepository` and a
+verification-only snapshot coordinate, then builds independent consumers.
+`publishAllPublicationsToNav3VerificationRepository` tasks use file repositories
+without signing or Maven Central credentials in local-only invocations. They
+do not replace Maven local artifacts. Compiler/dependency evidence and build
+logs remain in that directory;
+`build/nav3-validation/latest-consumer-run.txt` points to the latest run.
 
 ## Published Modules
 
@@ -72,8 +85,9 @@ The build exposes Maven Central publish tasks through Vanniktech Maven Publish:
 ```
 
 Remote publishing requires external Maven Central and signing credentials.
-Signing is enabled only when credentials are present and the task is not
-`publishToMavenLocal`.
+Signing is enabled when credentials are present and the invocation is not
+local-only. Adding `publishToMavenLocal` or a Nav3 verification publication task
+to a remote request does not suppress signing.
 
 ## GitHub Actions Release Workflow
 

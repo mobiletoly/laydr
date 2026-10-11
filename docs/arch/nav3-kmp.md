@@ -116,6 +116,16 @@ stack, sections object, or navigator fails before mutating a stale back stack.
 Applications retain the owner, never a composition-created navigator, stack,
 section wrapper, entry provider, coroutine scope, or platform owner.
 
+Within one composition, single-stack binding identity is the actual
+`NavBackStack` reference plus the resolved owner, independent of coordinator
+and scene-support identity. Sections keep a composition/owner binding and read
+the current aggregate of section stacks for pruning. Internal entry providers
+capture an updated access getter, resolving it inside cached `NavEntry`
+content. Rebuilding equivalent scene support therefore does not close a
+binding, drop transient state, or invalidate cached entries. Actual owner or
+single-stack replacement updates cached content's access; obsolete navigators
+still fail after their binding is closed or superseded.
+
 For app-owned or mixed parent stacks, pass an existing `NavBackStack<NavKey>`:
 
 ```kotlin

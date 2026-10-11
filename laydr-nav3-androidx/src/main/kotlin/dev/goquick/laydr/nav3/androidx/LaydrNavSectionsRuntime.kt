@@ -5,6 +5,7 @@ package dev.goquick.laydr.nav3.androidx
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import dev.goquick.laydr.compose.LaydrComposeRouteDefinitions
 
 /**
@@ -14,6 +15,11 @@ import dev.goquick.laydr.compose.LaydrComposeRouteDefinitions
  * remembered with AndroidX saved-stack state. Restored Laydr entries contain
  * route id and route parameters only; payloads, route-result callbacks, entry
  * tokens, and entry metadata are transient.
+ *
+ * Equivalent scene reconstruction preserves payloads, results, and return
+ * history. One binding covers the helper composition and owner; cleanup reads
+ * the current aggregate of section stacks. Acquire current wrappers after
+ * reconfiguration; composition recreation still invalidates old bindings.
  */
 @Composable
 public fun <Data : Any> rememberLaydrNavSections(
@@ -33,12 +39,13 @@ public fun <Data : Any> rememberLaydrNavSections(
         initialSection = initialSection ?: sectionSet.items.first(),
         sceneSupport = sceneSupport,
     )
+    val currentEntryStore = rememberUpdatedState(coordinator.entryStore)
     val entryProvider = laydrNavSectionEntryProvider(
         routeDefinitions = routeDefinitions,
         sectionSet = sectionSet,
         sceneSupport = sceneSupport,
         entryMetadata = entryMetadata,
-        entryStore = coordinator.entryStore,
+        entryStore = { currentEntryStore.value },
         notFoundContent = notFoundContent,
     )
 

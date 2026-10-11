@@ -1,0 +1,18 @@
+# Versions are supplied by the runner from Laydr's main catalog. This catalog
+# stays self-contained when copied into an isolated published-artifact build.
+[libraries]
+laydr-nav3-kmp = { module = "dev.goquick.laydr:laydr-nav3-kmp", version.ref = "laydr" }
+laydr-nav3-kmp-adaptive = { module = "dev.goquick.laydr:laydr-nav3-kmp-adaptive", version.ref = "laydr" }
+laydr-nav3-androidx = { module = "dev.goquick.laydr:laydr-nav3-androidx", version.ref = "laydr" }
+compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "compose" }
+compose-ui-test = { module = "org.jetbrains.compose.ui:ui-test", version.ref = "compose" }
+nav3-kmp-ui = { module = "org.jetbrains.androidx.navigation3:navigation3-ui", version.ref = "nav3" }
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity" }
+
+[plugins]
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "compose" }
+android-application = { id = "com.android.application", version.ref = "agp" }
+laydr = { id = "dev.goquick.laydr", version.ref = "laydr" }

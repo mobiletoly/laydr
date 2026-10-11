@@ -19,6 +19,8 @@ kotlin {
     jvm("desktop")
     wasmJs {
         browser()
+        // Compose browser tests need webpack to bundle the Skiko runtime.
+        binaries.executable()
     }
     listOf(
         iosArm64(),

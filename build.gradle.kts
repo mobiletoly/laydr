@@ -2,6 +2,8 @@ import org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsEnvSpec
 import org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsPlugin
 import org.jetbrains.kotlin.gradle.targets.wasm.yarn.WasmYarnPlugin
 import org.jetbrains.kotlin.gradle.targets.wasm.yarn.WasmYarnRootEnvSpec
+import org.jetbrains.kotlin.gradle.targets.wasm.binaryen.BinaryenEnvSpec
+import org.jetbrains.kotlin.gradle.targets.wasm.binaryen.BinaryenPlugin
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform) apply false
@@ -18,6 +20,12 @@ val laydrGroup = providers.gradleProperty("laydr.group").get()
 val laydrVersion = providers.gradleProperty("laydr.version").get()
 
 allprojects {
+    @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
+    plugins.withType<BinaryenPlugin>().configureEach {
+        extensions.configure<BinaryenEnvSpec>(BinaryenEnvSpec.EXTENSION_NAME) {
+            downloadBaseUrl.unset()
+        }
+    }
     plugins.withType<WasmNodeJsPlugin>().configureEach {
         extensions.configure<WasmNodeJsEnvSpec>(WasmNodeJsEnvSpec.EXTENSION_NAME) {
             downloadBaseUrl.unset()
@@ -34,4 +42,32 @@ plugins.withType<WasmYarnPlugin>().configureEach {
 subprojects {
     group = laydrGroup
     version = laydrVersion
+}
+
+// Internal runner input: historical client and current catalog toolchain.
+val consumerVersionRows = listOf(
+    listOf(
+        libs.versions.compatibilityKotlin.get(), libs.versions.compatibilityCompose.get(),
+        libs.versions.compatibilityNav3Kmp.get(), libs.versions.compatibilityAgp.get(),
+        libs.versions.activity.get(),
+    ),
+    listOf(
+        libs.versions.kotlin.get(), libs.versions.compose.get(), libs.versions.nav3Kmp.get(),
+        libs.versions.agp.get(), libs.versions.activity.get(),
+    ),
+).distinct()
+val consumerVersionsFile = layout.buildDirectory.file("nav3-validation/consumer-versions.tsv")
+tasks.register("writeNav3ConsumerVersions") {
+    group = "verification"
+    description = "Writes catalog-owned Kotlin, Compose, Nav3, AGP, and activity consumer profiles."
+    val profileText = consumerVersionRows.joinToString("\n", postfix = "\n") { it.joinToString("\t") }
+    val outputFile = consumerVersionsFile.get().asFile
+    inputs.property("profiles", profileText)
+    outputs.file(outputFile)
+    doLast {
+        outputFile.apply {
+            parentFile.mkdirs()
+            writeText(profileText)
+        }
+    }
 }

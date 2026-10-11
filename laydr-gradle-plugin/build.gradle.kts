@@ -6,7 +6,8 @@ plugins {
 
 dependencies {
     implementation(project(":laydr-codegen"))
-    implementation(libs.kotlin.gradle.plugin)
+    compileOnly(libs.kotlin.gradle.plugin)
+    testRuntimeOnly(libs.kotlin.gradle.plugin)
     testImplementation(gradleTestKit())
 }
 
@@ -22,6 +23,15 @@ gradlePlugin {
 }
 
 val functionalTestSourceSet = sourceSets.create("functionalTest")
+val functionalTestKotlinPlugin by configurations.creating
+dependencies {
+    add(functionalTestKotlinPlugin.name, libs.kotlin.gradle.plugin.compatibility)
+}
+// TestKit injects an isolated plugin classloader. Supply its host API for the
+// generator tests; published-artifact compatibility is checked separately.
+tasks.named<org.gradle.plugin.devel.tasks.PluginUnderTestMetadata>("pluginUnderTestMetadata") {
+    pluginClasspath.from(functionalTestKotlinPlugin)
+}
 
 configurations[functionalTestSourceSet.implementationConfigurationName].extendsFrom(
     configurations.testImplementation.get(),
@@ -36,6 +46,8 @@ val functionalTest by tasks.registering(Test::class) {
     testClassesDirs = functionalTestSourceSet.output.classesDirs
     classpath = functionalTestSourceSet.runtimeClasspath
     useJUnitPlatform()
+    systemProperty("laydr.test.kotlinVersion", libs.versions.compatibilityKotlin.get())
+    systemProperty("laydr.test.agpVersion", libs.versions.functionalTestAgp.get())
 }
 
 gradlePlugin.testSourceSets(functionalTestSourceSet)

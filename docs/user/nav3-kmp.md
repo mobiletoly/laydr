@@ -82,6 +82,19 @@ sections.navigator.push(
 )
 ```
 
+## Entry State Lifetime
+
+Rebuilding equivalent scene support during recomposition preserves payloads
+and pending results. Stack bindings follow the actual backing-stack container
+and entry-state owner; section bindings belong to the helper composition and
+owner. Navigation3 may cache entries, and managed cached content reads current
+composition entry-state access.
+
+Acquire stacks, sections, navigators, and providers from the current composition.
+For configuration retention, retain only `LaydrNavEntryStateOwner`. Rebinding
+that owner into a recreated composition makes previous bindings stale. This
+does not add support for editing route graphs or existing entry metadata live.
+
 ## Read Next
 
 Use the focused navigation pages when the app needs more detail:

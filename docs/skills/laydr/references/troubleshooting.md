@@ -204,6 +204,10 @@ object, navigator, or entry provider across recreation. Retain only
 wrappers from the current composition. Do not capture the destroyed Activity
 or composition in retained payloads or callbacks.
 
+Ordinary equivalent scene reconstruction should preserve binding lifetime.
+If it causes a stale lookup in cached Nav3 content, investigate the adapter's
+binding ownership rather than assuming app retention from the message alone.
+
 ## Workflow Failures
 
 Workflow hosting is route-owned screen code. Add `laydr-workflow`, create the

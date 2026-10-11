@@ -748,8 +748,8 @@ class LaydrPluginFunctionalTest {
     }
 
     private companion object {
-        private const val kotlinVersion = "2.4.0"
-        private const val androidGradlePluginVersion = "9.2.1"
+        private val kotlinVersion = checkNotNull(System.getProperty("laydr.test.kotlinVersion"))
+        private val androidGradlePluginVersion = checkNotNull(System.getProperty("laydr.test.agpVersion"))
     }
 
     private enum class FixtureRouteKind {

@@ -42,6 +42,15 @@ The AndroidX adapter does not expose the KMP adapter's retained
 the adapters semantically consistent, but does not promise AndroidX payload or
 callback survival across configuration recreation.
 
+Composition-owned entry-state owners are remembered independently of
+coordinators and scene support. A single-stack binding follows its actual
+backing-stack reference; a section binding follows the helper composition.
+Sections prune against the current aggregate of stacks. Managed cached entry
+content resolves an updated access getter, so equivalent reconstruction cannot
+clear payloads or cancel results. Closing a superseded binding does not clear
+an owner still used by a newer binding. Disposal clears the current default
+owner once, and old navigation capabilities remain stale.
+
 The AndroidX adapter must not depend on JetBrains Navigation3 KMP. The KMP
 adapter must not depend on AndroidX Navigation 3.
 

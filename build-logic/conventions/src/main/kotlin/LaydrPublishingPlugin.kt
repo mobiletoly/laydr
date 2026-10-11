@@ -8,6 +8,7 @@ import java.util.Properties
 import org.gradle.api.GradleException
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.publish.PublishingExtension
 import org.gradle.kotlin.dsl.configure
 
 class LaydrPublishingPlugin : Plugin<Project> {
@@ -21,7 +22,10 @@ class LaydrPublishingPlugin : Plugin<Project> {
             if (project.plugins.hasPlugin("com.android.library")) {
                 configure(AndroidSingleVariantLibrary(javadocJar = JavadocJar.Empty()))
             }
-            if (!project.isPublishingToMavenLocal() && project.hasSigningCredentials()) {
+            if (
+                (project.isRemotePublishingRequested() || !project.isLocalPublishingRequested()) &&
+                project.hasSigningCredentials()
+            ) {
                 signAllPublications()
             }
             coordinates(
@@ -52,6 +56,14 @@ class LaydrPublishingPlugin : Plugin<Project> {
                     url.set("https://github.com/mobiletoly/laydr")
                     connection.set("scm:git:git://github.com/mobiletoly/laydr.git")
                     developerConnection.set("scm:git:ssh://git@github.com/mobiletoly/laydr.git")
+                }
+            }
+        }
+        project.findProperty("nav3VerificationRepository")?.toString()?.let { directory ->
+            project.extensions.configure<PublishingExtension> {
+                repositories.maven {
+                    name = "Nav3Verification"
+                    url = project.uri(project.file(directory))
                 }
             }
         }
@@ -93,19 +105,20 @@ class LaydrPublishingPlugin : Plugin<Project> {
         return properties
     }
 
-    private fun Project.isPublishingToMavenLocal(): Boolean =
+    private fun Project.isLocalPublishingRequested(): Boolean =
         gradle.startParameter.taskNames.any { taskName ->
-            taskName.isPublishToMavenLocalTask()
+            taskName.isLocalPublishTask()
         }
 
     private fun Project.isRemotePublishingRequested(): Boolean =
         gradle.startParameter.taskNames.any { taskName ->
             taskName.contains("publish", ignoreCase = true) &&
-                !taskName.isPublishToMavenLocalTask()
+                !taskName.isLocalPublishTask()
         }
 
-    private fun String.isPublishToMavenLocalTask(): Boolean =
-        contains("publishToMavenLocal", ignoreCase = true)
+    private fun String.isLocalPublishTask(): Boolean =
+        contains("publishToMavenLocal", ignoreCase = true) ||
+            contains("ToNav3VerificationRepository", ignoreCase = true)
 
     private fun Project.hasSigningCredentials(): Boolean =
         providers.environmentVariable("SIGNING_KEY").isPresent ||
