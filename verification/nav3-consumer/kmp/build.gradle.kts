@@ -10,6 +10,8 @@ plugins {
 }
 
 val expectedCompiler = providers.gradleProperty("consumerKotlinVersion").get()
+val qualificationScope = providers.gradleProperty("consumerQualificationScope").orElse("full").get()
+check(qualificationScope in setOf("full", "jvm-android")) { "Unknown consumer qualification scope: $qualificationScope" }
 
 kotlin {
     jvmToolchain(17)
@@ -20,17 +22,19 @@ kotlin {
     jvm {
         compilerOptions.jvmTarget.set(JvmTarget.JVM_17)
     }
-    listOf(iosArm64(), iosSimulatorArm64()).forEach { target ->
-        target.binaries.framework {
-            baseName = "Nav3Consumer"
-            binaryOption("bundleId", "dev.goquick.laydr.verification.nav3consumer")
-            isStatic = true
+    if (qualificationScope == "full") {
+        listOf(iosArm64(), iosSimulatorArm64()).forEach { target ->
+            target.binaries.framework {
+                baseName = "Nav3Consumer"
+                binaryOption("bundleId", "dev.goquick.laydr.verification.nav3consumer")
+                isStatic = true
+            }
         }
-    }
-    @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
-    wasmJs {
-        browser()
-        binaries.executable()
+        @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
+        wasmJs {
+            browser()
+            binaries.executable()
+        }
     }
     sourceSets {
         commonMain.dependencies {

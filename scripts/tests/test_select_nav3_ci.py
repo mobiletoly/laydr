@@ -1,6 +1,7 @@
 """Protect compiler selection and conservative CI path/event handling."""
 
 import importlib.util
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -27,12 +28,12 @@ class SelectNav3CiTest(unittest.TestCase):
             ("laydr-core/src/commonMain/Route.kt", "true"),
         ]:
             with self.subTest(path=path):
-                self.assertEqual(selector.select_gates([path], versions), {
-                    "consumer_versions": versions[0], "android_ui": android,
+                self.assertEqual(selector.select_gates([path], versions, False), {
+                    "consumer_matrix": json.dumps([{"kotlin": versions[0], "scope": "jvm-android"}]), "android_ui": android,
                     "plugin_checks": "false", "publishing_checks": "false",
                 })
 
-    def test_sensitive_paths_select_both_compilers(self):
+    def test_sensitive_push_paths_keep_automatic_consumer_scope(self):
         versions = selector.compiler_versions(REPOSITORY)
         for path, publishing in [
             ("gradle/libs.versions.toml", "true"),
@@ -47,23 +48,29 @@ class SelectNav3CiTest(unittest.TestCase):
             ("scripts/select-nav3-ci.py", "true"), (".github/workflows/publish.yml", "true"),
         ]:
             with self.subTest(path=path):
-                plan = selector.select_gates([path], versions)
-                self.assertEqual(plan["consumer_versions"], " ".join(versions))
+                plan = selector.select_gates([path], versions, False)
+                self.assertEqual(json.loads(plan["consumer_matrix"]), [{"kotlin": versions[0], "scope": "jvm-android"}])
                 self.assertEqual(plan["android_ui"], "true")
                 self.assertEqual(plan["plugin_checks"], "true")
                 self.assertEqual(plan["publishing_checks"], publishing)
 
     def test_prefix_boundaries_do_not_enable_unrelated_gates(self):
-        plan = selector.select_gates(["docs/gradle/example.gradle.kts.md", "laydr-core-tools/readme.md"], ("2.4.10", "2.4.21"))
+        plan = selector.select_gates(["docs/gradle/example.gradle.kts.md", "laydr-core-tools/readme.md"], ("2.4.10", "2.4.21"), False)
         self.assertEqual(plan["android_ui"], "false")
         self.assertEqual(plan["publishing_checks"], "false")
-        self.assertEqual(plan["consumer_versions"], "2.4.10")
+        self.assertEqual(json.loads(plan["consumer_matrix"]), [{"kotlin": "2.4.10", "scope": "jvm-android"}])
 
     def test_unknown_history_selects_all_and_compilers_follow_catalog_inputs(self):
-        self.assertEqual(selector.select_gates(None, ("3.0.1", "3.0.2")), {
-            "consumer_versions": "3.0.1 3.0.2", "android_ui": "true",
+        self.assertEqual(selector.select_gates(None, ("3.0.1", "3.0.2"), True), {
+            "consumer_matrix": json.dumps([{"kotlin": "3.0.1", "scope": "full"}, {"kotlin": "3.0.2", "scope": "full"}]), "android_ui": "true",
             "plugin_checks": "true", "publishing_checks": "true",
         })
+
+    def test_missing_push_history_enables_owner_checks_without_native_linking(self):
+        plan = selector.select_gates(None, ("2.4.10", "2.4.21"), False)
+        self.assertEqual(json.loads(plan["consumer_matrix"]), [{"kotlin": "2.4.10", "scope": "jvm-android"}])
+        for key in ["android_ui", "plugin_checks", "publishing_checks"]:
+            self.assertEqual(plan[key], "true")
 
     def test_event_diffs_include_deleted_and_renamed_sensitive_paths(self):
         with tempfile.TemporaryDirectory(prefix="laydr-ci-selection-") as directory:
@@ -89,7 +96,7 @@ class SelectNav3CiTest(unittest.TestCase):
                     paths = selector.changed_paths(event_name, event, repository)
                     self.assertIn("gradle.properties", paths)
                     self.assertIn("docs/old-properties.txt", paths)
-                    self.assertEqual(selector.select_gates(paths, ("2.4.10", "2.4.21"))["publishing_checks"], "true")
+                    self.assertEqual(selector.select_gates(paths, ("2.4.10", "2.4.21"), False)["publishing_checks"], "true")
             for event_name, event in [
                 ("workflow_dispatch", {}), ("unknown", {}), ("push", {}),
                 ("push", {"before": "0" * 40, "after": after}),
@@ -106,9 +113,16 @@ class SelectNav3CiTest(unittest.TestCase):
             event_file.write_text("{")
             env = {**os.environ, "GITHUB_EVENT_NAME": "push", "GITHUB_EVENT_PATH": str(event_file), "GITHUB_OUTPUT": str(output_file)}
             result = subprocess.run(["python3", str(SCRIPT)], env=env, check=True, capture_output=True, text=True)
-            self.assertIn("Full qualification selected", result.stdout)
-            self.assertIn(f"consumer_versions={' '.join(versions)}\n", output_file.read_text())
+            self.assertIn("All owner checks selected", result.stdout)
+            expected_matrix = json.dumps([{"kotlin": versions[0], "scope": "jvm-android"}])
+            self.assertIn(f"consumer_matrix={expected_matrix}\n", output_file.read_text())
             self.assertIn("android_ui=true\n", output_file.read_text())
+            for event_name in ["workflow_dispatch", "unknown"]:
+                output_file.unlink()
+                env["GITHUB_EVENT_NAME"] = event_name
+                subprocess.run(["python3", str(SCRIPT)], env=env, check=True, capture_output=True, text=True)
+                expected_matrix = json.dumps([{"kotlin": version, "scope": "full"} for version in versions])
+                self.assertIn(f"consumer_matrix={expected_matrix}\n", output_file.read_text())
 
 
 if __name__ == "__main__":

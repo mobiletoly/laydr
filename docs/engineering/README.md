@@ -434,21 +434,32 @@ Use an API 36 emulator for connected AndroidX tests. The consumer script runs
 on macOS, publishes only into build output, and checks the catalog's historical
 and current Kotlin consumer toolchains, JVM UI execution, Android compilation, Native
 framework linking, and Wasm executable linking. By default the local command
-runs both compiler profiles; pass a catalog compiler version to select one.
-Keep failed or unrun gates explicit; do not bypass them to approve an upgrade.
+runs full qualification of both compiler profiles; pass a catalog compiler
+version to select one. `--scope=jvm-android` runs only JVM/Android consumption
+and publishes only the matching verification publications. The Gradle profile
+writer obtains their task names from the configured publishing model. Each
+run records its scope and selected compilers. Keep failed or unrun gates
+explicit; JVM/Android smoke checks do not qualify Native/Wasm compatibility.
 
-The focused Nav3 CI workflow qualifies only the older Kotlin compiler for
-routine runtime PR/main changes. Toolchain, Gradle/plugin, codegen, consumer
-fixture, selector, or workflow changes qualify both profiles, as do manual
-runs. `scripts/select-nav3-ci.py` reads the catalog and GitHub event's Git diff;
-missing history selects every gate conservatively. Desktop lifecycle tests
-always run. Generator/plugin and publishing tests run when their owners or
-toolchain change. AndroidX UI tests run for AndroidX/shared runtime, generated
-helper, or toolchain changes; KMP-only changes skip the emulator job. Both
-consumer versions remain mandatory before release publication.
+Every automatic PR/main push runs one older-Kotlin JVM/Android consumer,
+including pushes that change build scripts or workflows. Manual runs qualify
+both compilers fully, in independent matrix jobs. Desktop checks and consumers
+depend only on the planning job, so consumer failures cannot prevent a successful
+desktop job from saving its cache. Automatic desktop/consumer jobs have a
+25-minute budget; explicit full consumer jobs have a 40-minute budget.
+
+`scripts/select-nav3-ci.py` reads the catalog and GitHub event's Git diff.
+Missing automatic change history enables all owner checks while retaining
+the bounded JVM/Android scope. Desktop lifecycle tests always run;
+generator/plugin and publishing tests run when their owners or toolchain
+change. AndroidX UI tests run for AndroidX/shared runtime, generated-helper,
+or toolchain changes; KMP-only changes skip the emulator job. Both full consumer
+versions remain mandatory for toolchain upgrade acceptance and before release
+publication. Run the default local command or manual workflow for that gate;
+an automatic CI pass alone is insufficient.
 
 CI caches Gradle dependencies and producer build outputs with
-`gradle/actions/setup-gradle@v6` using the basic provider. macOS jobs also cache
+`gradle/actions/setup-gradle@v6` using the basic provider. Full consumer jobs cache
 `~/.konan/dependencies` with `actions/cache@v6`, keyed by OS/architecture, the
 runner label, catalog, and wrapper. Native compiler distributions and compiled
 Native caches are excluded to limit transfer size. Consumer Maven repositories
@@ -456,7 +467,7 @@ remain fresh, compiler assertions always run, and isolated consumer builds
 do not enable the producer build cache. Measure elapsed time and cache sizes
 on the next hosted run; cache misses and first runs can still be slow.
 
-CI selection tests run with:
+CI selection and runner orchestration tests run with:
 
 ```sh
 python3 -B -m unittest discover -s scripts/tests -v

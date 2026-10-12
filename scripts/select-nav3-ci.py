@@ -17,21 +17,22 @@ def is_toolchain_path(path: str) -> bool:
     )
 
 
-def select_gates(paths: list[str] | None, versions: tuple[str, str]) -> dict[str, str]:
-    full = paths is None or any(
+def select_gates(paths: list[str] | None, versions: tuple[str, str], full_qualification: bool) -> dict[str, str]:
+    owner_checks = paths is None or any(
         is_toolchain_path(path)
         or path.startswith(("laydr-codegen/", "laydr-gradle-plugin/", "verification/nav3-consumer/"))
         for path in paths
     )
-    android = full or any(
+    android = owner_checks or any(
         path.startswith(("laydr-nav3-androidx/", "laydr-nav-runtime/", "laydr-core/", "laydr-compose/"))
         for path in paths or []
     )
-    plugin = full
+    plugin = owner_checks
     publishing = paths is None or any(is_toolchain_path(path) for path in paths)
-    selected_versions = list(dict.fromkeys(versions if full else versions[:1]))
+    selected_versions = list(dict.fromkeys(versions if full_qualification else versions[:1]))
+    scope = "full" if full_qualification else "jvm-android"
     return {
-        "consumer_versions": " ".join(selected_versions),
+        "consumer_matrix": json.dumps([{"kotlin": version, "scope": scope} for version in selected_versions]),
         "android_ui": str(android).lower(),
         "plugin_checks": str(plugin).lower(),
         "publishing_checks": str(publishing).lower(),
@@ -75,17 +76,18 @@ def compiler_versions(repository: Path) -> tuple[str, str]:
 
 def main() -> None:
     repository = Path(__file__).resolve().parent.parent
+    event_name = os.environ.get("GITHUB_EVENT_NAME", "")
     try:
         with Path(os.environ["GITHUB_EVENT_PATH"]).open() as event_file:
             event = json.load(event_file)
-        paths = changed_paths(os.environ.get("GITHUB_EVENT_NAME", ""), event, repository)
+        paths = changed_paths(event_name, event, repository)
     except (KeyError, OSError, ValueError, AttributeError, TypeError):
         paths = None
-    plan = select_gates(paths, compiler_versions(repository))
+    plan = select_gates(paths, compiler_versions(repository), event_name not in ("push", "pull_request"))
     output = "".join(f"{key}={value}\n" for key, value in plan.items())
     print(output, end="")
     if paths is None:
-        print("Full qualification selected: manual event or unavailable change history.")
+        print("All owner checks selected: manual event or unavailable change history.")
     if output_path := os.environ.get("GITHUB_OUTPUT"):
         with Path(output_path).open("a") as output_file:
             output_file.write(output)

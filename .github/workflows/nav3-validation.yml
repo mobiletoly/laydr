@@ -36,7 +36,7 @@ jobs:
   plan:
     runs-on: ubuntu-24.04
     outputs:
-      consumer_versions: ${{ steps.select.outputs.consumer_versions }}
+      consumer_matrix: ${{ steps.select.outputs.consumer_matrix }}
       android_ui: ${{ steps.select.outputs.android_ui }}
       plugin_checks: ${{ steps.select.outputs.plugin_checks }}
       publishing_checks: ${{ steps.select.outputs.publishing_checks }}
@@ -50,10 +50,50 @@ jobs:
         id: select
         run: python3 -B scripts/select-nav3-ci.py
 
-  desktop-and-consumers:
+  desktop-checks:
     needs: plan
     runs-on: macos-26
-    timeout-minutes: 45
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Cache Gradle dependencies and builds
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic
+      - name: Check desktop navigation
+        run: ./gradlew :laydr-nav-runtime:jvmTest :laydr-nav3-kmp:jvmTest --no-configuration-cache --build-cache
+      - name: Check generator and plugin behavior
+        if: needs.plan.outputs.plugin_checks == 'true'
+        run: ./gradlew :laydr-codegen:test :laydr-gradle-plugin:check --no-configuration-cache --build-cache
+      - name: Check publishing conventions
+        if: needs.plan.outputs.publishing_checks == 'true'
+        run: ./gradlew :conventions:test --no-configuration-cache --build-cache
+      - name: Upload validation evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: nav3-desktop-checks
+          path: |
+            laydr-nav3-kmp/build/reports/tests/
+            laydr-nav-runtime/build/reports/tests/
+            laydr-codegen/build/reports/tests/
+            laydr-gradle-plugin/build/reports/tests/
+            build-logic/conventions/build/reports/tests/
+
+  consumers:
+    needs: plan
+    name: Consumers (${{ matrix.kotlin }}, ${{ matrix.scope }})
+    runs-on: macos-26
+    timeout-minutes: ${{ matrix.scope == 'full' && 40 || 25 }}
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.consumer_matrix) }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-java@v6
@@ -65,40 +105,27 @@ jobs:
         with:
           cache-provider: basic
       - name: Cache Kotlin Native dependencies
+        if: matrix.scope == 'full'
         uses: actions/cache@v6
         with:
           path: ~/.konan/dependencies
           key: nav3-native-deps-${{ runner.os }}-${{ runner.arch }}-macos-26-${{ hashFiles('gradle/libs.versions.toml', 'gradle/wrapper/gradle-wrapper.properties') }}
-      - name: Check desktop navigation
-        run: ./gradlew :laydr-nav-runtime:jvmTest :laydr-nav3-kmp:jvmTest --no-configuration-cache --build-cache
-      - name: Check generator and plugin behavior
-        if: needs.plan.outputs.plugin_checks == 'true'
-        run: ./gradlew :laydr-codegen:test :laydr-gradle-plugin:check --no-configuration-cache --build-cache
-      - name: Check publishing conventions
-        if: needs.plan.outputs.publishing_checks == 'true'
-        run: ./gradlew :conventions:test --no-configuration-cache --build-cache
-      - name: Check isolated published-artifact consumers
-        shell: bash
+      - name: Check isolated published-artifact consumer
         env:
-          CONSUMER_VERSIONS: ${{ needs.plan.outputs.consumer_versions }}
-        run: |
-          mkdir -p build/nav3-validation
-          printf '%s\n' "Selected consumer compilers: $CONSUMER_VERSIONS" > build/nav3-validation/ci-selection.txt
-          read -r -a consumer_versions <<< "$CONSUMER_VERSIONS"
-          ./scripts/check-nav3-consumers.sh "${consumer_versions[@]}"
-      - name: Upload validation evidence
+          CONSUMER_KOTLIN: ${{ matrix.kotlin }}
+          CONSUMER_SCOPE: ${{ matrix.scope }}
+        run: ./scripts/check-nav3-consumers.sh "--scope=$CONSUMER_SCOPE" "$CONSUMER_KOTLIN"
+      - name: Upload consumer evidence
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: nav3-desktop-consumers
+          name: nav3-consumer-${{ matrix.kotlin }}-${{ matrix.scope }}
           path: |
-            laydr-nav3-kmp/build/reports/tests/
-            laydr-nav-runtime/build/reports/tests/
-            laydr-codegen/build/reports/tests/
-            laydr-gradle-plugin/build/reports/tests/
-            build-logic/conventions/build/reports/tests/
             build/nav3-validation/
             build/nav3-consumers.*/*.log
+            build/nav3-consumers.*/scope.txt
+            build/nav3-consumers.*/selected-compilers.txt
+            build/nav3-consumers.*/consumer-versions.tsv
             build/nav3-consumers.*/**/build/reports/
 
   androidx-ui:

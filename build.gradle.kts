@@ -4,6 +4,7 @@ import org.jetbrains.kotlin.gradle.targets.wasm.yarn.WasmYarnPlugin
 import org.jetbrains.kotlin.gradle.targets.wasm.yarn.WasmYarnRootEnvSpec
 import org.jetbrains.kotlin.gradle.targets.wasm.binaryen.BinaryenEnvSpec
 import org.jetbrains.kotlin.gradle.targets.wasm.binaryen.BinaryenPlugin
+import org.gradle.api.publish.maven.tasks.PublishToMavenRepository
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform) apply false
@@ -57,17 +58,32 @@ val consumerVersionRows = listOf(
     ),
 ).distinct()
 val consumerVersionsFile = layout.buildDirectory.file("nav3-validation/consumer-versions.tsv")
+val consumerPublicationTasksFile = layout.buildDirectory.file("nav3-validation/jvm-android-publication-tasks.txt")
+val consumerPublicationTasks = providers.provider {
+    val publications = setOf("kotlinMultiplatform", "jvm", "maven", "pluginMaven", "laydrPluginMarkerMaven")
+    subprojects.filter { it.name.startsWith("laydr-") }.flatMap { module ->
+        module.tasks.withType<PublishToMavenRepository>().filter { task ->
+            task.repository.name == "Nav3Verification" && task.publication.name in publications
+        }.map { it.path }
+    }.sorted()
+}
 tasks.register("writeNav3ConsumerVersions") {
     group = "verification"
-    description = "Writes catalog-owned Kotlin, Compose, Nav3, AGP, and activity consumer profiles."
+    description = "Writes catalog-owned consumer profiles and JVM/Android verification publication tasks."
+    notCompatibleWithConfigurationCache("Reads configured verification publication task models.")
     val profileText = consumerVersionRows.joinToString("\n", postfix = "\n") { it.joinToString("\t") }
     val outputFile = consumerVersionsFile.get().asFile
     inputs.property("profiles", profileText)
+    inputs.property("jvmAndroidPublicationTasks", consumerPublicationTasks)
     outputs.file(outputFile)
+    outputs.file(consumerPublicationTasksFile)
     doLast {
         outputFile.apply {
             parentFile.mkdirs()
             writeText(profileText)
         }
+        consumerPublicationTasksFile.get().asFile.writeText(
+            consumerPublicationTasks.get().joinToString("\n", postfix = "\n"),
+        )
     }
 }

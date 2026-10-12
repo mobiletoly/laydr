@@ -104,9 +104,11 @@ Release validation qualifies both catalog Kotlin consumer versions through
 `./scripts/check-nav3-consumers.sh` before the Maven Central step. This gate
 uses fresh verification publications and receives no publishing credentials;
 Maven local assembly alone does not prove compatibility. Consumer reports and
-compiler evidence are uploaded even when qualification fails. Routine Nav3 CI
-uses only the older compiler unless a toolchain/build/generated-helper change
-requires both. Release jobs cache Gradle and Native dependencies using the
+compiler evidence are uploaded even when qualification fails. Automatic Nav3
+push/PR CI uses the older compiler in JVM/Android scope. Full Native/Wasm
+qualification of both compilers is required separately for upgrades and
+releases; the default local runner and manual workflow provide that gate.
+Release jobs cache Gradle and Native dependencies using the
 same bounded cache policy described in the engineering guide.
 
 Before publishing, the workflow verifies that:
